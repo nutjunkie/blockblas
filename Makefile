@@ -1,14 +1,17 @@
 CXX = g++
-CXXFLAGS = 
+CXXFLAGS = -flax-vector-conversions
+LIBS = -framework Accelerate
 
-OBJECTS = spherium.o Matrix.o BlockMatrix.o
+
+
+OBJECTS = spherium.o VMatrix.o BlockMatrix.o
 
 %.o : %.C
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	$(CXX) -c $(LIBS) $(CXXFLAGS) $< -o $@
 
 
 spherium: $(OBJECTS)
-	$(CXX) -o spherium $(OBJECTS) 
+	$(CXX) -o spherium $(LIBS) $(OBJECTS) 
 
 clean:
 	rm -f $(OBJECTS)

@@ -1,9 +1,10 @@
-#include "Matrix.h"
+#include "VMatrix.h"
 #include <algorithm>
 #include <iostream>
+#include <veclib/veclib.h>
 /******************************************************************************
  * 
- *  Class for managing block matrices.
+ *  Virtual matrix class
  * 
  *****************************************************************************/
 
@@ -51,35 +52,6 @@ void Matrix::fillDiagonal()
        m_data[i] = (*m_functor)(i,i);
    }
 }
-
-
-/*
-x  x  .  .  .  .
-x  x  x  .  .  .
-.  x  x  x  .  .
-.  .  x  x  x  .
-.  .  .  x  x  x
-.  .  .  .  x  x
-
-.  .  .  .  .  x
-
-.  .  .  .  .  .
-.  .  .  .  .  .
-.  .  .  .  .  .
-
-
-0  1  2  3  4  5   6  7  8
-x  x  .  .  .  .   .  .  .
-x  x  x  .  .  .   .  .  .
-.  x  x  x  .  .   .  .  .
-.  .  x  x  x  .   .  .  .
-.  .  .  x  x  x   .  .  .
-.  .  .  .  x  x   x  .  .
-
-* x x
-x x x
-
-*/
 
 
 // Packed band structure using row-major layout
@@ -230,3 +202,59 @@ double Matrix::operator()(int const i, int const j) const
 }
 
 
+void matrix_product(Matrix& c, Matrix& A, Matrix& b)
+{
+   // A.b = c
+   // dims(b) == dms(c)  both dense
+
+   if (A.nCols() != b.nRows() ||
+       b.nCols() != c.nCols() ||
+       b.nRows() != c.nRows()) {
+       //barf
+   }
+
+   switch (A.storage()) {
+      case Matrix::Zero:
+         // nothing to do
+         break;
+      case Matrix::Diagonal:
+         break;
+      case Matrix::Tridiagonal:
+         break;
+      case Matrix::Pentadiagonal:
+         break;
+      case Matrix::Dense:
+         if (c.nCols() == 1) {
+            cblas_dgemv(CblasRowMajor, CblasNoTrans,
+              A.nRows(), A.nCols(), 1.0, A.data(), A.nCols(),
+              b.data(), 1, 0.0, c.data(), 1);
+         }else {
+            cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+              A.nRows(), b.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
+              b.data(), b.nCols(), 0.0, c.data(), c.nCols());
+         }
+         break;
+   }
+}
+
+
+/*
+Matrix& Matrix::operator*=(Matrix const& rhs)
+{
+
+. . .  . .  . . . . .     .
+. . .  . .  . . . . .     .
+. . .  . .  . . . . .     .
+
+. . .  . .  . . . . .     .
+. . .  . .  . . . . .     .
+
+. . .  . .  . . . . .     .
+. . .  . .  . . . . .     .
+. . .  . .  . . . . .     .
+. . .  . .  . . . . .     .
+. . .  . .  . . . . .     .
+
+   }
+}
+*/

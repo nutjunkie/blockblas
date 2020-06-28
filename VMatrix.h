@@ -1,3 +1,5 @@
+#ifndef VMATRIX_H
+#define VMATRIX_H
 /******************************************************************************
  * 
  *  Class declarations for managing block matrices.  The interface is desiged
@@ -51,9 +53,14 @@ class Matrix
           }
        } 
 
-       // This is an extremely inefficient way of accessing the elements
-       // and is included for debug purposes only.
+       double* data() { return m_data; }
+
        double operator() (int const i, int const j) const;
+
+       Matrix& operator*=(Matrix const& rhs);
+
+       
+      void matrix_product(Matrix& c, Matrix& A, Matrix& b);
 
        Storage storage() const { return m_storage; }
        bool isZero() const { return m_storage == Zero; }
@@ -75,3 +82,5 @@ class Matrix
        unsigned m_nCols;       
        double*  m_data;
 };
+
+#endif

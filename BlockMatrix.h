@@ -8,7 +8,7 @@
  *
  *****************************************************************************/
 
-#include "Matrix.h"
+#include "VMatrix.h"
 
 class BlockMatrix
 {
@@ -33,6 +33,9 @@ class BlockMatrix
        {
            return m_blocks[row*m_nColBlocks + col];
        }
+
+      
+       // BlockMatrix& operator*=(BlockMatrix& rhs);
 
        unsigned nRowBlocks() const { return m_nRowBlocks; }
        unsigned nColBlocks() const { return m_nColBlocks; }
