@@ -17,28 +17,30 @@
 // Matrix class representing a tile of the BlockMatrix.  These tiles are "aware" of
 // how to compute the elements via the Functor argument
 
-class Matrix
+class VMatrix
 {
     public:
-       enum Storage { Zero, Diagonal, Tridiagonal, Pentadiagonal, Dense, Symmetric };
+       enum StorageT { Zero, Diagonal, Tridiagonal, Pentadiagonal, Dense, Symmetric };
 
-       Matrix(Functor const* functor = &s_zero, unsigned const nRows = 0, 
-          unsigned const nCols = 0, Storage const storage = Zero) : 
-          m_functor(functor), m_nRows(m_nRows), m_nCols(m_nCols),
-          m_storage(storage), m_data(0)
+       // If no functor is given, the data is left uninitialized on bind()
+       VMatrix(unsigned const nRows = 0, unsigned const nCols = 0, 
+           StorageT const storage = Dense, Functor const* functor = 0) :
+          m_nRows(m_nRows), m_nCols(m_nCols),
+          m_storage(storage), m_functor(functor), m_data(0)
        { }
 
        // The functor could be redefined to operate on double* directly, if required
-       void init(Functor const* functor, unsigned const nRows, unsigned const nCols, 
-          Storage const storage)
+       VMatrix& init(unsigned const nRows, unsigned const nCols, 
+          StorageT const storage = Dense, Functor const* functor = 0)
        {
-          m_functor = functor;
           m_nRows   = nRows;
           m_nCols   = nCols;
           m_storage = storage;
+          m_functor = functor;
+          return *this;
        }
 
-       ~Matrix() { release(); }
+       ~VMatrix() { release(); }
 
        unsigned nRows() const { return m_nRows; }
        unsigned nCols() const { return m_nCols; }
@@ -57,30 +59,33 @@ class Matrix
 
        double operator() (int const i, int const j) const;
 
-       Matrix& operator*=(Matrix const& rhs);
+       void set(int const i, int const j, double value);
 
+       VMatrix& operator*=(VMatrix const& rhs);
+
+       void print() const;
        
-      void matrix_product(Matrix& c, Matrix& A, Matrix& b);
+       static void matrix_product(VMatrix& c, VMatrix& A, VMatrix& b);
 
-       Storage storage() const { return m_storage; }
+       StorageT storage() const { return m_storage; }
        bool isZero() const { return m_storage == Zero; }
        bool isDense() const { return m_storage == Dense; }
        bool isBand() const { return m_storage < Dense; }
 
     private:
-       static ZeroFunctor s_zero;
-
        void fillZero();
        void fillDense();
        void fillDiagonal();
        void fillTridiagonal();
        void fillPentadiagonal();
 
-       Functor const* m_functor; 
-       Storage  m_storage;
        unsigned m_nRows;       
        unsigned m_nCols;       
+
+       StorageT m_storage;
+       Functor const* m_functor; 
        double*  m_data;
+
 };
 
 #endif

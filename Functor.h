@@ -1,3 +1,5 @@
+#ifndef FUNCTOR_H
+#define FUNCTOR_H
 /******************************************************************************
  * 
  *  Class declarations for managing block matrices.  The interface is desiged
@@ -8,6 +10,8 @@
  *
  *****************************************************************************/
 
+#include <cmath>
+
 // Function prototype used for evaluating elements of a given sub matrix 
 
 class Functor
@@ -15,6 +19,7 @@ class Functor
    public:
       virtual double operator()(unsigned const i, unsigned const j) const = 0;
 };
+
 
 class ZeroFunctor : public Functor
 {
@@ -33,7 +38,6 @@ class DiagonalFunctor : public Functor
 };
 
 
-
 class DebugFunctor : public Functor
 {
    public:
@@ -42,3 +46,23 @@ class DebugFunctor : public Functor
          return (i+1) + 0.01*(j+1); 
       }
 };
+
+
+class TestFunctor : public Functor
+{
+   public:
+      TestFunctor(unsigned const rowOffset = 0, unsigned const colOffset = 0) :
+         m_rowOffset(rowOffset), m_colOffset(colOffset) { }
+
+      double operator()(unsigned const i, unsigned const j) const 
+      { 
+         unsigned offi(i+m_rowOffset);
+         unsigned offj(j+m_colOffset);
+         return (offi == offj) ? 1.0 + offi : 0.1*std::sin(1.0*(offi+offj));
+      }
+   private:
+      unsigned m_rowOffset;
+      unsigned m_colOffset;
+};
+
+#endif

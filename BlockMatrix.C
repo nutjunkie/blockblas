@@ -11,17 +11,17 @@
 
 void BlockMatrix::info() const
 {
-   std::cout << "Number of row blocks: :   " << nRowBlocks() << std::endl;
-   std::cout << "Number of column blocks:  " << nColBlocks() << std::endl;
-   std::cout << "Total number of rows:     " << nRows() << std::endl;
-   std::cout << "Total number of columns:  " << nCols() << std::endl;
-   std::cout << "BlockMatrix is consitent: " << (consistent() ? "true" : "false") << std::endl;
+   std::cout << "Number of row blocks: :    " << nRowBlocks() << std::endl;
+   std::cout << "Number of column blocks:   " << nColBlocks() << std::endl;
+   std::cout << "Total number of rows:      " << nRows() << std::endl;
+   std::cout << "Total number of columns:   " << nCols() << std::endl;
+   std::cout << "BlockMatrix is consistent: " << (consistent() ? "true" : "false") << std::endl;
    std::cout << std::endl;
 
    std::cout << "Tile sizes:" << std::endl;
    for (unsigned row = 0; row < m_nRowBlocks; ++row) {
        for (unsigned col = 0; col < m_nColBlocks; ++col) {
-           Matrix const& m((*this)(row, col));
+           VMatrix const& m((*this)(row, col));
            std::cout << "(" << m.nRows() <<","<< m.nCols() << ")  ";
        }   
        std::cout << std::endl;
@@ -34,7 +34,7 @@ void BlockMatrix::info() const
 
    for (unsigned row = 0; row < m_nRowBlocks; ++row) {
        for (unsigned col = 0; col < m_nColBlocks; ++col) {
-           Matrix::Storage s((*this)(row, col).storage());
+           VMatrix::StorageT s((*this)(row, col).storage());
            std::cout << chars[s] << "  ";
        }   
        std::cout << std::endl;
@@ -98,7 +98,7 @@ void BlockMatrix::print() const
        unsigned nr = (*this)(bi,0).nRows();
        for (unsigned i = 0; i < nr; ++i) {
            for (unsigned bj = 0; bj < m_nColBlocks; ++bj) {
-               Matrix const& m((*this)(bi, bj));
+               VMatrix const& m((*this)(bi, bj));
                unsigned nc = m.nCols();
                for (unsigned j = 0; j < nc; ++j) {
                    if (m(i,j) == 0) {
@@ -112,5 +112,61 @@ void BlockMatrix::print() const
           std::cout << std::endl;
        }
       std::cout << std::endl;
+   }
+}
+
+
+unsigned BlockMatrix::rowOffset(unsigned bi) const
+{
+   unsigned offset(0);
+   for (unsigned i = 0; i < bi; ++i) {
+       offset += (*this)(i,0).nRows();
+   }
+   return offset;
+}
+
+
+unsigned BlockMatrix::colOffset(unsigned bj) const
+{
+   unsigned offset(0);
+   for (unsigned j = 0; j < bj; ++j) {
+       offset += (*this)(0,j).nCols();
+   }
+   return offset;
+}
+
+
+void BlockMatrix::toDense(VMatrix* vm) const
+{
+   vm->init(nRows(), nCols(), VMatrix::Dense).bind();
+
+   for (unsigned bi = 0; bi < nRowBlocks(); ++bi) {
+       unsigned iOff(rowOffset(bi));
+       for (unsigned bj = 0; bj < nColBlocks(); ++bj) {
+           unsigned jOff(colOffset(bj));
+//         std::cout << "VMatrix("<< bi << "," << bj << ") with offset (" 
+//                   << iOff << "," << jOff << ")" << std::endl;
+           VMatrix const& m((*this)(bi,bj));
+           for (unsigned i = 0; i < m.nRows(); ++i) {
+               for (unsigned j = 0; j < m.nCols(); ++j) {
+                   vm->set(iOff+i, jOff+j, m(i,j));
+               }
+           }
+       }
+   }
+}
+
+
+void BlockMatrix::matrix_product(BlockMatrix& C, BlockMatrix& A, BlockMatrix& B)
+{
+   // Should check matrix dimensions
+   for (unsigned bi = 0; bi < A.nRowBlocks(); ++bi) {
+       for (unsigned bj = 0; bj < B.nColBlocks(); ++bj) {
+           for (unsigned k = 0; k < A.nColBlocks(); ++k) {
+//             std::cout << "Multiplying block: C(" << bi << "," << bj << ") <- A(" 
+//                       << bi << "," << k << ") x B(" << k << "," << bj << ")" << std::endl;
+               VMatrix::matrix_product(C(bi,bj), A(bi,k), B(k,bj));
+           }
+       }
    }
 }

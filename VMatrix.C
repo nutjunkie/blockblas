@@ -1,16 +1,18 @@
 #include "VMatrix.h"
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
 #include <veclib/veclib.h>
 /******************************************************************************
  * 
  *  Virtual matrix class
  * 
+ *  
+ * 
  *****************************************************************************/
 
-ZeroFunctor Matrix::s_zero = ZeroFunctor();
 
-void Matrix::bind()
+void VMatrix::bind()
 {
    release();
 
@@ -37,17 +39,22 @@ void Matrix::bind()
 }
 
 
-void Matrix::fillZero()
+void VMatrix::fillZero()
 {
+   // This represents a zero block matrix where the entries are not
+   // explicitly stored.  To initialize a non-zero block matrix use
+   // the appropriate storage type and the ZeroFunctor.
    m_data = new double[1];
    m_data[0] = 0.0;
 }
 
 
-void Matrix::fillDiagonal()
+void VMatrix::fillDiagonal()
 {
    unsigned m(std::min(m_nRows,m_nCols));
    m_data = new double[m];
+   if (!m_functor) return;
+
    for (unsigned i = 0; i < m; ++i) {
        m_data[i] = (*m_functor)(i,i);
    }
@@ -55,10 +62,11 @@ void Matrix::fillDiagonal()
 
 
 // Packed band structure using row-major layout
-void Matrix::fillTridiagonal()
+void VMatrix::fillTridiagonal()
 {
    unsigned  m(std::min(m_nRows,m_nCols));
    m_data = new double[3*m+1];  // +1 if m_nNows > m
+   if (!m_functor) return;
 
    // First row
    unsigned k(0);
@@ -90,10 +98,11 @@ void Matrix::fillTridiagonal()
 
 
 // Packed band structure using row-major layout
-void Matrix::fillPentadiagonal()
+void VMatrix::fillPentadiagonal()
 {
    unsigned m(std::min(m_nRows,m_nCols)), k(0);
    m_data = new double[5*m+10];  // +2 if m_nNows > m
+   if (!m_functor) return;
 
    // First row
    m_data[k++] = 0.0;
@@ -156,9 +165,10 @@ void Matrix::fillPentadiagonal()
 
 
 
-void Matrix::fillDense()
+void VMatrix::fillDense()
 {
    m_data = new double[m_nRows*m_nCols];
+   if (!m_functor) return;
 
    unsigned k(0);
    for (unsigned i = 0; i < m_nRows; ++i) {
@@ -169,10 +179,8 @@ void Matrix::fillDense()
 }
 
 
-double Matrix::operator()(int const i, int const j) const
+double VMatrix::operator()(int const i, int const j) const
 {
-   // Tmp, this should be replaced by array lookup methods
-   //return (*m_functor)(i,j);
    double value(0.0);
 
    switch (m_storage) {
@@ -202,36 +210,82 @@ double Matrix::operator()(int const i, int const j) const
 }
 
 
-void matrix_product(Matrix& c, Matrix& A, Matrix& b)
+void VMatrix::set(int const i, int const j, double value)
 {
-   // A.b = c
-   // dims(b) == dms(c)  both dense
+   switch (m_storage) {
+      case Zero:
+         break;
+      case Diagonal:
+         if (i==j) m_data[i] = value;
+         break;
+      case Tridiagonal:
+         if (std::abs(j-i) <= 1) {
+            m_data[i*3+(j-i)+1] = value;
+         }
+         break;
+      case Pentadiagonal:
+         if (std::abs(j-i) <= 2) {
+            m_data[i*5+(j-i)+2] = value;
+         }
+         break;
+      case Dense:
+         m_data[i*m_nCols + j] = value;
+         break;
+      default:
+         break;
+   }
+}
 
-   if (A.nCols() != b.nRows() ||
-       b.nCols() != c.nCols() ||
-       b.nRows() != c.nRows()) {
-       //barf
+
+void VMatrix::print() const
+{
+   for (unsigned i = 0; i < m_nRows; ++i) {
+       for (unsigned j = 0; j < m_nCols; ++j) {
+           std::cout << std::setw(5) << (*this)(i,j) << " ";
+       }
+       std::cout << std::endl;
+   }
+   std::cout << std::endl;
+}
+
+
+// Accumulates the A.B product into C:
+//    C += A.B 
+// Also handles the case when B and C are vectors.
+void VMatrix::matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
+{
+   if (A.nCols() != B.nRows() ||
+       B.nCols() != C.nCols() ||
+       A.nRows() != C.nRows()) {
+
+       std::cerr << "Barf on the dimensions:" << std::endl;
+       std::cout << A.nCols() << " != " << B.nRows() << " || " << std::endl;
+       std::cout << B.nCols() << " != " << C.nCols() << " || " << std::endl;
+       std::cout << A.nRows() << " != " << C.nRows() << std::endl;
    }
 
    switch (A.storage()) {
-      case Matrix::Zero:
-         // nothing to do
+      case VMatrix::Zero:
+         // Nothing to do
          break;
-      case Matrix::Diagonal:
+      case VMatrix::Diagonal: 
+         std::cerr << "matrix_product for VMatrix::Diagonal NYI" << std::endl;
          break;
-      case Matrix::Tridiagonal:
+      case VMatrix::Tridiagonal:
+         std::cerr << "matrix_product for VMatrix::Tridiagonal NYI" << std::endl;
          break;
-      case Matrix::Pentadiagonal:
+      case VMatrix::Pentadiagonal:
+         std::cerr << "matrix_product for VMatrix::Pentadiagonal NYI" << std::endl;
          break;
-      case Matrix::Dense:
-         if (c.nCols() == 1) {
+      case VMatrix::Dense:
+         if (C.nCols() == 1) {
             cblas_dgemv(CblasRowMajor, CblasNoTrans,
               A.nRows(), A.nCols(), 1.0, A.data(), A.nCols(),
-              b.data(), 1, 0.0, c.data(), 1);
+              B.data(), 1, 0.0, C.data(), 1);
          }else {
             cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-              A.nRows(), b.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
-              b.data(), b.nCols(), 0.0, c.data(), c.nCols());
+              A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
+              B.data(), B.nCols(), 1.0, C.data(), C.nCols());
          }
          break;
    }
@@ -239,7 +293,7 @@ void matrix_product(Matrix& c, Matrix& A, Matrix& b)
 
 
 /*
-Matrix& Matrix::operator*=(Matrix const& rhs)
+VMatrix& VMatrix::operator*=(VMatrix const& rhs)
 {
 
 . . .  . .  . . . . .     .

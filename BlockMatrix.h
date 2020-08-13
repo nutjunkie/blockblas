@@ -1,3 +1,5 @@
+#ifndef BLOCKMATRIX_H
+#define BLOCKMATRIX_H
 /******************************************************************************
  * 
  *  Class declarations for managing block matrices.  The interface is desiged
@@ -16,7 +18,7 @@ class BlockMatrix
        BlockMatrix(unsigned const nRowBlocks, unsigned const nColBlocks) :
           m_nRowBlocks(nRowBlocks), m_nColBlocks(nColBlocks)
        {
-          m_blocks = new Matrix[m_nRowBlocks*m_nColBlocks];
+          m_blocks = new VMatrix[m_nRowBlocks*m_nColBlocks];
        }
        
        ~BlockMatrix()
@@ -24,25 +26,28 @@ class BlockMatrix
           delete [] m_blocks;
        }
 
-       Matrix& operator()(unsigned const row, unsigned const col)
+       VMatrix& operator()(unsigned const row, unsigned const col)
        {
            return m_blocks[row*m_nColBlocks + col];
        }
 
-       Matrix const& operator()(unsigned const row, unsigned const col) const
+       VMatrix const& operator()(unsigned const row, unsigned const col) const
        {
            return m_blocks[row*m_nColBlocks + col];
        }
 
-      
-       // BlockMatrix& operator*=(BlockMatrix& rhs);
 
        unsigned nRowBlocks() const { return m_nRowBlocks; }
        unsigned nColBlocks() const { return m_nColBlocks; }
  
        bool consistent() const;
 
-       Matrix toDense() const;
+       void toDense(VMatrix*) const;
+
+       unsigned rowOffset(unsigned bi) const;
+       unsigned colOffset(unsigned bj) const;
+
+       static void matrix_product(BlockMatrix& C, BlockMatrix& A, BlockMatrix& B);
 
        void info() const;
        void print() const;
@@ -53,5 +58,6 @@ class BlockMatrix
 
        unsigned m_nRowBlocks;
        unsigned m_nColBlocks;
-       Matrix*  m_blocks;
+       VMatrix*  m_blocks;
 };
+#endif
