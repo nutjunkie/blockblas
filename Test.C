@@ -1,4 +1,5 @@
 #include "BlockMatrix.h"
+#include "MatMult.h"
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -11,7 +12,7 @@
 int test_1()
 {
    std::cout << "=================================" << std::endl;
-   std::cout << " test_1: Ctor and debug printing" << std::endl;
+   std::cout << " test_1: Ctor and debug printing " << std::endl;
    std::cout << "=================================" << std::endl;
 
    unsigned nRowBlocks(4);
@@ -29,14 +30,14 @@ int test_1()
            // These are the dimensions of the current tile
            unsigned nRows(2*(row+1));
            unsigned nCols(2*(col+1)+1);
-           bm(row,col).init(nRows,nCols,VMatrix::Dense,&debugFunctor);
+           bm(row,col).init(nRows,nCols,VMatrix::Dense);
        }
    }
 
    // Bind our data, this allocates the memory and sets the entries
    for (unsigned row = 0; row < nRowBlocks; ++row) {
        for (unsigned col = 0; col < nColBlocks; ++col) {
-           bm(row,col).bind();
+           bm(row,col).bind(debugFunctor);
        }
    }
 
@@ -66,23 +67,24 @@ int test_2()
   
    // Initialize the structure of our BlockMatrix.  Note in this case
    // we bind the data at the same time.
-   bm(0,0).init(2,3,VMatrix::Diagonal,   &diagonalFunctor).bind();
-   bm(0,1).init(2,7,VMatrix::Zero,       &zeroFunctor).bind();
-   bm(0,2).init(2,5,VMatrix::Dense,      &debugFunctor).bind();
+   bm(0,0).init(2,3,VMatrix::Diagonal).bind(diagonalFunctor);
+   bm(0,1).init(2,7,VMatrix::Zero    ).bind(zeroFunctor);
+   bm(0,2).init(2,5,VMatrix::Dense   ).bind(debugFunctor);
 
-   bm(1,0).init(6,3,VMatrix::Diagonal,   &diagonalFunctor).bind();
-   bm(1,1).init(6,7,VMatrix::Tridiagonal,&debugFunctor).bind();
-   bm(1,2).init(6,5,VMatrix::Diagonal,   &diagonalFunctor).bind();
+   bm(1,0).init(6,3,VMatrix::Diagonal).bind(diagonalFunctor);
+   bm(1,1).init(6,7,VMatrix::Diagonal).bind(debugFunctor);
+   bm(1,2).init(6,5,VMatrix::Diagonal).bind(diagonalFunctor);
 
-   bm(2,0).init(2,3,VMatrix::Diagonal,   &diagonalFunctor).bind();
-   bm(2,1).init(2,7,VMatrix::Zero,       &zeroFunctor).bind();
-   bm(2,2).init(2,5,VMatrix::Diagonal,   &diagonalFunctor).bind();
+   bm(2,0).init(2,3,VMatrix::Diagonal).bind(diagonalFunctor);
+   bm(2,1).init(2,7,VMatrix::Zero    ).bind(zeroFunctor);
+   bm(2,2).init(2,5,VMatrix::Diagonal).bind(diagonalFunctor);
 
    std::vector<int> stripes{-4,-2,-1,1};
+   std::vector<int> stripes2{-1,1};
 
-   bm(3,0).init(9,3,VMatrix::Diagonal,   &debugFunctor).bind();
-   bm(3,1).init(9,7,VMatrix::Striped,    &debugFunctor).bindStripes(stripes);
-   bm(3,2).init(9,5,VMatrix::Diagonal,   &diagonalFunctor).bind();
+   bm(3,0).init(9,3,VMatrix::Zero    ).bind(debugFunctor);
+   bm(3,1).init(9,7,stripes          ).bind(debugFunctor);
+   bm(3,2).init(9,5,stripes2         ).bind(debugFunctor);
 
    bm.info();
    bm.print();
@@ -97,15 +99,15 @@ int test_3()
    std::cout << " test_3: dense <- dense x dense " << std::endl;
    std::cout << "================================" << std::endl;
 
-   TestFunctor testFunctor(0,0);
+   TestFunctor testFunctor;
    ZeroFunctor zeroFunctor;
 
    VMatrix a, b, c;
 
-   a.init( 9,10, VMatrix::Dense, &testFunctor).bind();
-   b.init(10, 8, VMatrix::Dense, &testFunctor).bind();
-   c.init( 9, 8, VMatrix::Dense, &zeroFunctor).bind();
-   VMatrix::matrix_product(c, a, b); 
+   a.init( 9,10).bind(testFunctor);
+   b.init(10, 8).bind(testFunctor);
+   c.init( 9, 8).bind(zeroFunctor);
+   matrix_product(c, a, b); 
 
    std::string fname("test_3.dat");
    std::ifstream ifs(fname.c_str(), std::ios::in);
@@ -130,7 +132,7 @@ int test_3()
    }
 
    std::cout << "PASS" << std::endl << std::endl;
-  return 0;
+   return 0;
 }
 
 
@@ -138,56 +140,36 @@ int test_3()
 int test_4()
 {
    std::cout << "=====================================" << std::endl;
-   std::cout << " test_4: Block matrix multiplication" << std::endl;
+   std::cout << " test_4: Block matrix multiplication " << std::endl;
    std::cout << "=====================================" << std::endl;
 
    BlockMatrix A(3,3);
    BlockMatrix C(3,3);
    ZeroFunctor zeroFunctor;
-   
-   TestFunctor fun1(0,0);
-   A(0,0).init(4,4, VMatrix::Dense, &fun1).bind();
-   C(0,0).init(4,4, VMatrix::Dense, &zeroFunctor).bind();
 
-   TestFunctor fun2(4,0);
-   A(1,0).init(4,4, VMatrix::Dense, &fun2).bind();
-   C(1,0).init(4,4, VMatrix::Dense, &zeroFunctor).bind();
+   for (unsigned i = 0; i < 3; ++i) {
+       for (unsigned j = 0; j < 3; ++j) {
+           A(i,j).init(4,4);
+           C(i,j).init(4,4).bind(zeroFunctor);
+       }
+   }
 
-   TestFunctor fun3(8,0);
-   A(2,0).init(4,4, VMatrix::Dense, &fun3).bind();
-   C(2,0).init(4,4, VMatrix::Dense, &zeroFunctor).bind();
+   // Need to init before binding A to use the row/colOffset functions
+   for (unsigned i = 0; i < 3; ++i) {
+       for (unsigned j = 0; j < 3; ++j) {
+           A(i,j).bind(TestFunctor(A.rowOffset(i),A.rowOffset(j)));
+       }
+   }
 
-   TestFunctor fun4(0,4);
-   A(0,1).init(4,4, VMatrix::Dense, &fun4).bind();
-   C(0,1).init(4,4, VMatrix::Dense, &zeroFunctor).bind();
-
-   TestFunctor fun5(4,4);
-   A(1,1).init(4,4, VMatrix::Dense, &fun5).bind();
-   C(1,1).init(4,4, VMatrix::Dense, &zeroFunctor).bind();
-
-   TestFunctor fun6(8,4);
-   A(2,1).init(4,4, VMatrix::Dense, &fun6).bind();
-   C(2,1).init(4,4, VMatrix::Dense, &zeroFunctor).bind();
-
-   TestFunctor fun7(0,8);
-   A(0,2).init(4,4, VMatrix::Dense, &fun7).bind();
-   C(0,2).init(4,4, VMatrix::Dense, &zeroFunctor).bind();
-
-   TestFunctor fun8(4,8);
-   A(1,2).init(4,4, VMatrix::Dense, &fun8).bind();
-   C(1,2).init(4,4, VMatrix::Dense, &zeroFunctor).bind();
-
-   TestFunctor fun9(8,8);
-   A(2,2).init(4,4, VMatrix::Dense, &fun9).bind();
-   C(2,2).init(4,4, VMatrix::Dense, &zeroFunctor).bind();
-
-   BlockMatrix::matrix_product(C, A, A);
+   // Compute the matrix product via blocks
+   matrix_product(C, A, A);
 
    VMatrix a, b, c;
-   a.init(12,12, VMatrix::Dense, &fun1).bind();
-   c.init(12,12, VMatrix::Dense, &zeroFunctor).bind();
+   a.init(12,12, VMatrix::Dense).bind(TestFunctor());
+   c.init(12,12, VMatrix::Dense).bind(zeroFunctor);
 
-   VMatrix::matrix_product(c,a,a);
+   // Compute the matrix product all as one
+   matrix_product(c,a,a);
 
    C.toDense(&b);
 
@@ -199,7 +181,6 @@ int test_4()
    for (unsigned i = 0; i < n; ++i) {
        res += std::abs(data_c[i] - data_b[i]);
    }
-
 
    std::cout << "Matrix residue:   " << res << std::endl;
    if (res > n*1e-12) {
@@ -219,7 +200,7 @@ int test_5()
    std::cout << " test_5: Timing test " << std::endl;
    std::cout << "=====================" << std::endl;
 
-   const unsigned dim(1024);
+   const unsigned dim(124);
    const unsigned blocks(2);
 
    BlockMatrix A(blocks,blocks);
@@ -233,16 +214,17 @@ int test_5()
            //if (((bi + bj) % 2) == 0) {
            if (true ) {
            //if (bi ==  bj) {
-              A(bi,bj).init(dim,dim, VMatrix::Dense   , &fun1).bind();
-              C(bi,bj).init(dim,dim, VMatrix::Dense   , &zeroFunctor).bind();
+              A(bi,bj).init(dim,dim, VMatrix::Dense).bind(fun1);
+              C(bi,bj).init(dim,dim, VMatrix::Dense).bind(zeroFunctor);
            }else {
-              A(bi,bj).init(dim,dim, VMatrix::Zero    , &fun1).bind();
-              C(bi,bj).init(dim,dim, VMatrix::Dense   , &zeroFunctor).bind();
+              A(bi,bj).init(dim,dim, VMatrix::Zero ).bind(fun1);
+              C(bi,bj).init(dim,dim, VMatrix::Dense).bind(zeroFunctor);
            }
        }
    }
 
-//   A.print("A Matrix");
+   A.info("A Matrix:");
+// A.print("A Matrix");
    
    VMatrix a, c;
    C.toDense(&c);
@@ -253,7 +235,7 @@ int test_5()
    double elapsed;
    
    gettimeofday(&tv1, &tz);
-   BlockMatrix::matrix_product(C,A,A);
+   matrix_product(C,A,A);
    gettimeofday(&tv2, &tz);
    elapsed = (double) (tv2.tv_sec-tv1.tv_sec) + (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
    std::cout << "BlockMatrix time: " << elapsed << std::endl;;
@@ -261,7 +243,7 @@ int test_5()
  //  C.print("Product from BlockMatrix multiplication");
 
    gettimeofday(&tv1, &tz);
-   VMatrix::matrix_product(c,a,a);
+   matrix_product(c,a,a);
    gettimeofday(&tv2, &tz);
    elapsed = (double) (tv2.tv_sec-tv1.tv_sec) + (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
    std::cout << "VMatrix time:     " << elapsed << std::endl;;
@@ -272,20 +254,17 @@ int test_5()
    VMatrix b;
    C.toDense(&b);
 
-
    double* data_c(c.data());
    double* data_b(b.data());
    double  res(0);
    unsigned n(c.nCols()*c.nRows());
 
    for (unsigned i = 0; i < n; ++i) {
-       res += std::abs( data_c[i] - data_b[i]);
+       res = std::max(res, std::abs( data_c[i] - data_b[i]));
    }
 
-   std::cout << "Matrix residue:   " << res << std::endl;
-   if (res > n*1e-12) {
-//      b.print("b VMatrix obtained from densifying C");
-//      c.print("c VMatrix obtained from VMatrix multiplication");
+   std::cout << "Max deviation:    " << res << std::endl;
+   if (res > 1e-8) {
       std::cout << "FAIL" << std::endl << std::endl;
       return 1;
    } 
@@ -299,7 +278,7 @@ int test_5()
 int test_6()
 {
    std::cout << "===============================" << std::endl;
-   std::cout << " test_6: dense <- diag x dense" << std::endl;
+   std::cout << " test_6: dense <- diag x dense " << std::endl;
    std::cout << "===============================" << std::endl;
 
    TestFunctor testFunctor(0,0);
@@ -307,11 +286,11 @@ int test_6()
 
    VMatrix a, b, c;
 
-   a.init(10,10, VMatrix::Diagonal, &testFunctor).bind();
-   b.init(10,10, VMatrix::Dense,    &testFunctor).bind();
-   c.init(10,10, VMatrix::Dense,    &zeroFunctor).bind();
+   a.init(10,10, VMatrix::Diagonal).bind(testFunctor);
+   b.init(10,10, VMatrix::Dense   ).bind(testFunctor);
+   c.init(10,10, VMatrix::Dense   ).bind(zeroFunctor);
 
-   VMatrix::matrix_product(c, a, b); 
+   matrix_product(c, a, b); 
 
    std::string fname("test_6.dat");
    std::ifstream ifs(fname.c_str(), std::ios::in);
@@ -352,11 +331,11 @@ int test_7()
 
    VMatrix a, b, c;
 
-   a.init(10,10, VMatrix::Dense,    &testFunctor).bind();
-   b.init(10,10, VMatrix::Diagonal, &testFunctor).bind();
-   c.init(10,10, VMatrix::Dense,    &zeroFunctor).bind();
+   a.init(10,10, VMatrix::Dense   ).bind(testFunctor);
+   b.init(10,10, VMatrix::Diagonal).bind(testFunctor);
+   c.init(10,10, VMatrix::Dense   ).bind(zeroFunctor);
 
-   VMatrix::matrix_product(c, a, b); 
+   matrix_product(c, a, b); 
 
    std::string fname("test_7.dat");
    std::ifstream ifs(fname.c_str(), std::ios::in);
@@ -400,11 +379,11 @@ int test_8()
 
    VMatrix a, b, c;
 
-   a.init(10,10, VMatrix::Diagonal, &testFunctor).bind();
-   b.init(10,10, VMatrix::Diagonal, &testFunctor).bind();
-   c.init(10,10, VMatrix::Dense,    &zeroFunctor).bind();
+   a.init(10,10, VMatrix::Diagonal).bind(testFunctor);
+   b.init(10,10, VMatrix::Diagonal).bind(testFunctor);
+   c.init(10,10, VMatrix::Dense   ).bind(zeroFunctor);
 
-   VMatrix::matrix_product(c, a, b); 
+   matrix_product(c, a, b); 
 
    std::string fname("test_8.dat");
    std::ifstream ifs(fname.c_str(), std::ios::in);
@@ -451,28 +430,75 @@ int test_9()
 
    VMatrix a, b, c, d;
 
-   //std::vector<int> stripes = {-3,-1,1,3};
-   std::vector<int> stripes = {1,3};
+   std::vector<int> stripes = {-3,-1,1,3};
+   //std::vector<int> stripes = {1,3};
 
-   a.init(5,5, VMatrix::Striped, &debugFunctor).bindStripes(stripes);
-   b.init(5,5, VMatrix::Dense,   &testFunctor).bind();
-   c.init(5,5, VMatrix::Dense,   &zeroFunctor).bind();
-   d.init(5,5, VMatrix::Dense,   &zeroFunctor).bind();
+   a.init(5,5, stripes).bind(debugFunctor);
+   b.init(5,5, VMatrix::Dense).bind(testFunctor);
+   c.init(5,5, VMatrix::Dense).bind(zeroFunctor);
+   d.init(5,5, VMatrix::Dense).bind(zeroFunctor);
+
+   a.print("A with stripes");
+   b.print("B is dense");
+
+   matrix_product(c, a, b); 
+
+   c.print("Product of striped x dense");
+
+   // Do a dense version for checking
+   a.toDense();
+   matrix_product(d, a, b); 
+
+   double* data_c(c.data());
+   double* data_d(d.data());
+   double  res(0);
+   unsigned n(c.nCols()*c.nRows());
+
+   for (unsigned i = 0; i < n; ++i) {
+       res += std::abs(data_c[i] - data_d[i]);
+   }
+
+   std::cout << "Matrix residue:   " << res << std::endl;
+   if (res > n*1e-12) {
+      std::cout << "FAIL" << std::endl << std::endl;
+      return 1;
+   } 
+
+   std::cout << "PASS" << std::endl << std::endl;
+   return 0;
+
+}
+
+int test_10()
+{
+   std::cout << "===================================" << std::endl;
+   std::cout << " test_10: dense <- dense x striped " << std::endl;
+   std::cout << "===================================" << std::endl;
+
+   TestFunctor testFunctor(0,0);
+   ZeroFunctor zeroFunctor;
+   DebugFunctor debugFunctor;
+
+   VMatrix a, b, c, d;
+
+   std::vector<int> stripes = {-3,-1,1,3};
+
+   a.init(5,5, stripes).bind(debugFunctor);
+   b.init(5,5, VMatrix::Dense).bind(testFunctor);
+   c.init(5,5, VMatrix::Dense).bind(zeroFunctor);
+   d.init(5,5, VMatrix::Dense).bind(zeroFunctor);
 
    a.print();
    b.print();
 
 
-   VMatrix::matrix_product(c, a, b); 
-
-   std::string fname("test_9.dat");
-   std::ifstream ifs(fname.c_str(), std::ios::in);
+   matrix_product(c, a, b); 
 
    c.print();
 
    // Do a dense version for checking
    a.toDense();
-   VMatrix::matrix_product(d, a, b); 
+   matrix_product(d, a, b); 
 
    double* data_c(c.data());
    double* data_d(d.data());
@@ -500,7 +526,6 @@ int main()
    std::cout << "Running tests:" << std::endl;
    int ok = 
         test_1()
-/*
       + test_2()
       + test_3()
       + test_4()
@@ -508,7 +533,6 @@ int main()
       + test_6()
       + test_7()
       + test_8()
-*/
       + test_9()
       ;
 
@@ -517,11 +541,11 @@ int main()
 
    if (ok) {
       std::cout << "FAIL" << std::endl;
+      std::cout << "With " << ok << " failure(s)" << std::endl;
    }else {
-      std::cout << "PASS" << std::endl;
+      std::cout << "ALL PASS" << std::endl;
    }
 
-   std::cout << "With " << ok << " failure(s)" << std::endl;
 
    return ok;
 }

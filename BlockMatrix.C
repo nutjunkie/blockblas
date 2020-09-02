@@ -1,16 +1,19 @@
-#include "BlockMatrix.h"
-#include <algorithm>
-#include <iostream>
-#include <iomanip>
 /******************************************************************************
  * 
  *  Class for managing block matrices.
  * 
  *****************************************************************************/
 
+#include "BlockMatrix.h"
+#include <algorithm>
+#include <iostream>
+#include <iomanip>
 
-void BlockMatrix::info() const
+void BlockMatrix::info(const char* msg) const
 {
+   if (msg) {
+      std::cout << msg << std::endl;
+   }
    std::cout << "Number of row blocks: :    " << nRowBlocks() << std::endl;
    std::cout << "Number of column blocks:   " << nColBlocks() << std::endl;
    std::cout << "Total number of rows:      " << nRows() << std::endl;
@@ -30,16 +33,50 @@ void BlockMatrix::info() const
    std::cout << std::endl;
    std::cout << "Data arrangement:" << std::endl;
 
-   char const* chars = ".\\TPXS";
+   char const* chars = ".\\SX";
 
    for (unsigned row = 0; row < m_nRowBlocks; ++row) {
        for (unsigned col = 0; col < m_nColBlocks; ++col) {
            VMatrix::StorageT s((*this)(row, col).storage());
-           std::cout << chars[s] << "  ";
+           if (s == VMatrix::Striped) {
+              unsigned n((*this)(row, col).stripes().size());
+              std::cout << n << "  ";
+
+           }else {
+              std::cout << chars[s] << "  ";
+           }
        }   
        std::cout << std::endl;
    }
 }
+
+
+void BlockMatrix::print(const char* msg) const
+{
+   if (msg) {
+      std::cout << msg << std::endl;
+   }
+   for (unsigned bi = 0; bi < m_nRowBlocks; ++bi) {
+       unsigned nr = (*this)(bi,0).nRows();
+       for (unsigned i = 0; i < nr; ++i) {
+           for (unsigned bj = 0; bj < m_nColBlocks; ++bj) {
+               VMatrix const& m((*this)(bi, bj));
+               unsigned nc = m.nCols();
+               for (unsigned j = 0; j < nc; ++j) {
+                   if (m(i,j) == 0) {
+                      std::cout << "    . ";
+                   }else {
+                      std::cout << std::setw(5) << m(i,j) << " ";
+                   }
+               }
+               std::cout << " ";
+          }
+          std::cout << std::endl;
+       }
+      std::cout << std::endl;
+   }
+}
+
 
 
 unsigned BlockMatrix::nRows() const
@@ -92,33 +129,6 @@ bool BlockMatrix::consistent() const
 }
 
 
-void BlockMatrix::print(const char* msg) const
-{
-   if (msg) {
-      std::cout << msg << std::endl;
-   }
-   for (unsigned bi = 0; bi < m_nRowBlocks; ++bi) {
-       unsigned nr = (*this)(bi,0).nRows();
-       for (unsigned i = 0; i < nr; ++i) {
-           for (unsigned bj = 0; bj < m_nColBlocks; ++bj) {
-               VMatrix const& m((*this)(bi, bj));
-               unsigned nc = m.nCols();
-               for (unsigned j = 0; j < nc; ++j) {
-                   if (m(i,j) == 0) {
-                      std::cout << "    . ";
-                   }else {
-                      std::cout << std::setw(5) << m(i,j) << " ";
-                   }
-               }
-               std::cout << " ";
-          }
-          std::cout << std::endl;
-       }
-      std::cout << std::endl;
-   }
-}
-
-
 // Inefficient implmentation targeted for debugging.
 unsigned BlockMatrix::rowOffset(unsigned bi) const
 {
@@ -161,17 +171,3 @@ void BlockMatrix::toDense(VMatrix* vm) const
    }
 }
 
-
-void BlockMatrix::matrix_product(BlockMatrix& C, BlockMatrix& A, BlockMatrix& B)
-{
-   // Should check matrix dimensions
-   for (unsigned bi = 0; bi < A.nRowBlocks(); ++bi) {
-       for (unsigned bj = 0; bj < B.nColBlocks(); ++bj) {
-           for (unsigned k = 0; k < A.nColBlocks(); ++k) {
-//           std::cout << "Multiplying block: C(" << bi << "," << bj << ") <- A(" 
-//                     << bi << "," << k << ") x B(" << k << "," << bj << ")" << std::endl;
-               VMatrix::matrix_product(C(bi,bj), A(bi,k), B(k,bj));
-           }
-       }
-   }
-}

@@ -4,9 +4,9 @@ LIBS = -framework Accelerate
 
 
 
-OBJECTS = VMatrix.o BlockMatrix.o 
+OBJECTS = VMatrix.o BlockMatrix.o MatMult.o
 
-%.o : %.C
+%.o : %.C %.h
 	$(CXX) -c $(LIBS) $(CXXFLAGS) $< -o $@
 
 test: $(OBJECTS) Test.o
@@ -16,4 +16,4 @@ spherium: $(OBJECTS) spherium.o
 	$(CXX) -o spherium $(LIBS) $(OBJECTS) spherium.o
 
 clean:
-	rm -f $(OBJECTS) spherium.o test.o
+	rm -f $(OBJECTS) spherium.o test.o spherium test
