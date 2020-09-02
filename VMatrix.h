@@ -10,7 +10,9 @@
  *
  *****************************************************************************/
 
+#include <string>
 #include <cstddef>
+#include <vector>
 #include "Functor.h"
 
 
@@ -20,14 +22,17 @@
 class VMatrix
 {
     public:
-       enum StorageT { Zero, Diagonal, Tridiagonal, Pentadiagonal, Dense, Symmetric };
+       enum StorageT { Zero, Diagonal, Tridiagonal, Pentadiagonal, Dense, Striped};
+
+       static std::string toString(StorageT);
 
        // If no functor is given, the data is left uninitialized on bind()
        VMatrix(unsigned const nRows = 0, unsigned const nCols = 0, 
            StorageT const storage = Dense, Functor const* functor = 0) :
           m_nRows(m_nRows), m_nCols(m_nCols),
-          m_storage(storage), m_functor(functor), m_data(0)
-       { }
+          m_storage(storage), m_functor(functor), m_data(0), m_stripes(0)
+       { 
+       }
 
        // The functor could be redefined to operate on double* directly, if required
        VMatrix& init(unsigned const nRows, unsigned const nCols, 
@@ -40,12 +45,21 @@ class VMatrix
           return *this;
        }
 
-       ~VMatrix() { release(); }
+       ~VMatrix() { 
+          release(); 
+       }
 
        unsigned nRows() const { return m_nRows; }
        unsigned nCols() const { return m_nCols; }
 
+       void toDense();
+
+       
+       std::vector<int> const&  stripes() { return m_stripes; }
+
        void bind();
+
+       void bindStripes(std::vector<int> const& stripes);
 
        void release() 
        {
@@ -55,6 +69,10 @@ class VMatrix
           }
        } 
 
+
+       bool isBound() const { return m_data != 0; }
+
+       // Use this to fill the raw data array
        double* data() { return m_data; }
 
        double operator() (int const i, int const j) const;
@@ -63,14 +81,15 @@ class VMatrix
 
        VMatrix& operator*=(VMatrix const& rhs);
 
-       void print() const;
+       void print(const char* = 0) const;
        
        static void matrix_product(VMatrix& c, VMatrix& A, VMatrix& b);
 
        StorageT storage() const { return m_storage; }
        bool isZero() const { return m_storage == Zero; }
        bool isDense() const { return m_storage == Dense; }
-       bool isBand() const { return m_storage < Dense; }
+       //bool isBand() const { return m_storage < Striped; }
+       bool isStriped() const { return m_storage == Striped; }
 
     private:
        void fillZero();
@@ -84,8 +103,8 @@ class VMatrix
 
        StorageT m_storage;
        Functor const* m_functor; 
-       double*  m_data;
-
+       std::vector<int> m_stripes;
+       double* m_data;
 };
 
 #endif

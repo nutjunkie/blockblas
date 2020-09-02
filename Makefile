@@ -1,5 +1,5 @@
-CXX = g++
-CXXFLAGS = -flax-vector-conversions
+CXX = g++ -g 
+CXXFLAGS = -flax-vector-conversions -std=c++11
 LIBS = -framework Accelerate
 
 

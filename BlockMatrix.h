@@ -50,7 +50,7 @@ class BlockMatrix
        static void matrix_product(BlockMatrix& C, BlockMatrix& A, BlockMatrix& B);
 
        void info() const;
-       void print() const;
+       void print(const char* = 0) const;
        
     private:
        unsigned nRows() const;

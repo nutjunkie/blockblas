@@ -12,6 +12,22 @@
  *****************************************************************************/
 
 
+std::string VMatrix::toString(StorageT storage)
+{
+   std::string s;
+   switch (storage) {
+      case Zero:           s = "Zero";           break;
+      case Diagonal:       s = "Diagonal";       break;
+      case Tridiagonal:    s = "Tridiagonal";    break;
+      case Pentadiagonal:  s = "Pentadiagonal";  break;
+      case Dense:          s = "Dense";          break;
+      case Striped:        s = "Striped";        break;
+   }
+
+   return s;
+}
+
+
 void VMatrix::bind()
 {
    release();
@@ -32,11 +48,65 @@ void VMatrix::bind()
       case Pentadiagonal:
          fillPentadiagonal();
          break;
+      case Striped:
+         fillPentadiagonal();
+         break;
       default:
          fillDense();
          break;
    }
 }
+
+
+void VMatrix::bindStripes(std::vector<int> const& stripes)
+{
+   release();
+   m_storage = Striped;
+   m_stripes = stripes;
+
+   unsigned nStripes(m_stripes.size());
+   unsigned m(std::min(m_nRows,m_nCols));
+   m_data = new double[nStripes*m];
+
+   for (int i = 0; i < nStripes*m_nCols; ++i) {
+       m_data[i] = 0;
+   }
+
+   if (!m_functor) return;
+
+   for (unsigned k = 0; k < nStripes; ++k) {
+       int offset(m_stripes[k]);
+       if (offset < 0) {
+          unsigned max(std::min(m_nRows + offset,m_nCols));
+//        std::cout << "offset = " << offset << " running to " << max << std::endl;
+          for (unsigned j = 0; j < max; ++j) {
+/*
+               std::cout << "  setting data = " << j + k*m<< " to " 
+                         << (*m_functor)(j-offset,j) << std::endl;
+*/
+              m_data[j + k*m] = (*m_functor)(j-offset,j);
+          }
+       }else {
+          unsigned max(std::min(m_nRows, m_nCols-offset));
+ //       std::cout << "offset = " << offset << " running to " << max << std::endl;
+          for (unsigned i = 0; i < max; ++i) {
+/*
+               std::cout << "  setting data = " << i + k*m << " to " 
+                         << (*m_functor)(i,i+offset) << std::endl;
+*/
+              m_data[i + k*m] = (*m_functor)(i,i+offset);
+          }
+       } 
+   }
+
+/*
+   for (int i = 0; i < nStripes*m; ++i) {
+       std::cout << "striped data " << i << " "<< m_data[i]<< std::endl;
+   }
+*/
+}
+
+
 
 
 void VMatrix::fillZero()
@@ -156,9 +226,7 @@ void VMatrix::fillPentadiagonal()
       m_data[k++] = (*m_functor)(m+1,m-1);
    }
 
-
-
-   for (unsigned i=0; i < k; ++i) std::cout<< i << " " << m_data[i] << std::endl;
+   //for (unsigned i=0; i < k; ++i) std::cout<< i << " " << m_data[i] << std::endl;
 
    if (k > 5*m+2)  std::cout << "Range check: " << 5*m+2 << " < " << k << std::endl;
 }
@@ -179,6 +247,23 @@ void VMatrix::fillDense()
 }
 
 
+void VMatrix::toDense()
+{
+   double* data = new double[m_nRows*m_nCols];
+
+   unsigned k(0);
+   for (unsigned i = 0; i < m_nRows; ++i) {
+       for (unsigned j = 0; j < m_nCols; ++j, ++k) {
+           data[k] = (*this)(i,j);
+       }
+   }  
+
+   release();
+   m_data = data;
+   m_storage = Dense;
+}
+
+
 double VMatrix::operator()(int const i, int const j) const
 {
    double value(0.0);
@@ -187,7 +272,9 @@ double VMatrix::operator()(int const i, int const j) const
       case Zero:
          break;
       case Diagonal:
-         if (i==j) value = m_data[i];
+         if (i==j) {
+            value = m_data[i];
+         }
          break;
       case Tridiagonal:
          if (std::abs(j-i) <= 1) {
@@ -199,6 +286,20 @@ double VMatrix::operator()(int const i, int const j) const
             value = m_data[i*5+(j-i)+2];
          }
          break;
+      case Striped: {
+         int stripe(j-i);
+         std::vector<int>::const_iterator it;
+         it = std::find(m_stripes.begin(), m_stripes.end(), stripe);
+
+         if (it != m_stripes.end()) {
+            // We have hit a non-zero element
+            unsigned m(std::min(m_nRows,m_nCols));
+            unsigned index = std::distance(m_stripes.begin(), it);
+            int ij = (stripe < 0) ? j : i;
+            value = m_data[ij + index*m];
+         }
+
+         } break;
       case Dense:
          value = m_data[i*m_nCols + j];
          break;
@@ -231,14 +332,20 @@ void VMatrix::set(int const i, int const j, double value)
       case Dense:
          m_data[i*m_nCols + j] = value;
          break;
+      case Striped:
+         //std::cout << "Attempt to set on Striped storage" << std::cout;
+         break;
       default:
          break;
    }
 }
 
 
-void VMatrix::print() const
+void VMatrix::print(const char* msg) const
 {
+   if (msg) {
+      std::cout << msg << std::endl;
+   }
    for (unsigned i = 0; i < m_nRows; ++i) {
        for (unsigned j = 0; j < m_nCols; ++j) {
            std::cout << std::setw(5) << (*this)(i,j) << " ";
@@ -251,7 +358,6 @@ void VMatrix::print() const
 
 // Accumulates the A.B product into C:
 //    C += A.B 
-// Also handles the case when B and C are vectors.
 void VMatrix::matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
 {
    if (A.nCols() != B.nRows() ||
@@ -264,51 +370,120 @@ void VMatrix::matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
        std::cout << A.nRows() << " != " << C.nRows() << std::endl;
    }
 
-   switch (A.storage()) {
-      case VMatrix::Zero:
-         // Nothing to do
-         break;
-      case VMatrix::Diagonal: 
-         std::cerr << "matrix_product for VMatrix::Diagonal NYI" << std::endl;
-         break;
-      case VMatrix::Tridiagonal:
-         std::cerr << "matrix_product for VMatrix::Tridiagonal NYI" << std::endl;
-         break;
-      case VMatrix::Pentadiagonal:
-         std::cerr << "matrix_product for VMatrix::Pentadiagonal NYI" << std::endl;
-         break;
-      case VMatrix::Dense:
-         if (C.nCols() == 1) {
-            cblas_dgemv(CblasRowMajor, CblasNoTrans,
-              A.nRows(), A.nCols(), 1.0, A.data(), A.nCols(),
-              B.data(), 1, 0.0, C.data(), 1);
-         }else {
-            cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-              A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
-              B.data(), B.nCols(), 1.0, C.data(), C.nCols());
+   if (!A.isBound() || !B.isBound() || !C.isBound()) {
+      std::cerr << "Unbound matrix encountered in VMatrix::matrix_product" << std::endl;
+   }
+
+   StorageT storageA(A.storage()), storageB(B.storage()), storageC(C.storage());
+
+   double* a(A.data());
+   double* b(B.data());
+   double* c(C.data());
+
+//   std::cerr << "VMatrix multiplication for " << toString(storageC) << " <- " 
+//             << toString(storageA) << " x " << toString(storageB) << std::endl;
+             
+   if (storageA == VMatrix::Zero || 
+       storageB == VMatrix::Zero) {
+      // Nothing to do
+
+   }else if (storageA == VMatrix::Diagonal && 
+             storageB == VMatrix::Diagonal &&
+             storageC == VMatrix::Diagonal) {
+     unsigned nc(C.nCols());
+     for (unsigned i = 0; i < A.nCols(); ++i) {
+         c[i] = a[i]*b[i];
+     }
+ 
+   }else if (storageA == VMatrix::Diagonal && 
+             storageB == VMatrix::Diagonal &&
+             storageC == VMatrix::Dense) {
+     unsigned nc(C.nCols());
+     for (unsigned i = 0; i < A.nCols(); ++i) {
+         c[i*nc+i] = a[i]*b[i];
+     }
+      
+   }else if (storageA == VMatrix::Diagonal && 
+             storageB == VMatrix::Dense &&
+             storageC == VMatrix::Dense) {
+     unsigned nc(B.nCols());
+     unsigned nr(A.nRows());
+
+     for (unsigned i = 0; i < nr; ++i) {
+         for (unsigned j = 0; j < nc; ++j) {
+             c[i*nc+j] = a[i] * b[i*nc+j];
          }
-         break;
+     }
+
+  }else if (storageA == VMatrix::Dense && 
+            storageB == VMatrix::Diagonal &&
+            storageC == VMatrix::Dense) {
+     unsigned nc(B.nCols());
+     unsigned nr(A.nRows());
+
+     for (unsigned i = 0; i < nr; ++i) {
+         for (unsigned j = 0; j < nc; ++j) {
+             c[i*nc+j] = a[i*nc+j] * b[j];
+         }
+     }
+
+  // Striped multiplication 
+  }else if (storageA == VMatrix::Striped && 
+            storageB == VMatrix::Dense   &&
+            storageC == VMatrix::Dense) {
+     unsigned nc(B.nCols());
+     unsigned nr(A.nRows());
+
+     std::vector<int> const& stripes(A.stripes());
+     unsigned nStripes(stripes.size());
+     unsigned rowsA(A.nRows());
+     unsigned colsA(A.nCols());
+     unsigned m(std::min(rowsA,colsA));
+  
+     for (unsigned s = 0; s < nStripes; ++s) {
+         int offset(stripes[s]);
+
+         if (offset < 0) { // lower triangular
+            unsigned k(std::min(rowsA + offset,colsA));
+//            std::cout << "contraction = " << offset << " running to " << k << std::endl;
+            for (unsigned i = 0; i < k; ++i) {
+                double x(a[i + s*m]);
+                for (unsigned j = 0; j < nc; ++j) {
+//std::cout << "C("<<(i-offset) << "," << j <<") = " << x << " x " << b[i*nc+j]<< std::endl;
+                    c[(i-offset)*nc+j] += x*b[i*nc+j];
+                }
+           }
+        }else {
+          unsigned k(std::min(rowsA, colsA-offset));
+//            std::cout << "contraction = " << offset << " running to " << k << std::endl;
+
+          for (unsigned i = 0; i < k; ++i) {
+                double x(a[i + s*m]);
+                for (unsigned j = 0; j < nc; ++j) {
+//std::cout << "C("<<(i-offset) << "," << j <<") = " << x << " x " << b[i*nc+j]<< std::endl;
+                    c[i*nc+j] += x*b[(i+offset)*nc+j];
+                }
+          }
+        } 
+     }
+
+   }else if (storageA == VMatrix::Dense && 
+             storageB == VMatrix::Dense && 
+             storageC == VMatrix::Dense) {
+      if (C.nCols() == 1) {
+         // handle the case when B and C are vectors.
+         cblas_dgemv(CblasRowMajor, CblasNoTrans,
+            A.nRows(), A.nCols(), 1.0, A.data(), A.nCols(),
+            B.data(), 1, 1.0, C.data(), 1);
+      } else {
+         cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
+             B.data(), B.nCols(), 1.0, C.data(), C.nCols());
+      }
+
+   }else {
+      std::cerr << "VMatrix multiplication not defined for " 
+                << toString(storageC) << " <- " 
+                << toString(storageA) << " x " << toString(storageB) << std::endl;
    }
 }
-
-
-/*
-VMatrix& VMatrix::operator*=(VMatrix const& rhs)
-{
-
-. . .  . .  . . . . .     .
-. . .  . .  . . . . .     .
-. . .  . .  . . . . .     .
-
-. . .  . .  . . . . .     .
-. . .  . .  . . . . .     .
-
-. . .  . .  . . . . .     .
-. . .  . .  . . . . .     .
-. . .  . .  . . . . .     .
-. . .  . .  . . . . .     .
-. . .  . .  . . . . .     .
-
-   }
-}
-*/

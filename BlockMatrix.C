@@ -92,8 +92,11 @@ bool BlockMatrix::consistent() const
 }
 
 
-void BlockMatrix::print() const
+void BlockMatrix::print(const char* msg) const
 {
+   if (msg) {
+      std::cout << msg << std::endl;
+   }
    for (unsigned bi = 0; bi < m_nRowBlocks; ++bi) {
        unsigned nr = (*this)(bi,0).nRows();
        for (unsigned i = 0; i < nr; ++i) {
@@ -116,6 +119,7 @@ void BlockMatrix::print() const
 }
 
 
+// Inefficient implmentation targeted for debugging.
 unsigned BlockMatrix::rowOffset(unsigned bi) const
 {
    unsigned offset(0);
@@ -126,6 +130,7 @@ unsigned BlockMatrix::rowOffset(unsigned bi) const
 }
 
 
+// Inefficient implmentation targeted for debugging.
 unsigned BlockMatrix::colOffset(unsigned bj) const
 {
    unsigned offset(0);
@@ -144,8 +149,8 @@ void BlockMatrix::toDense(VMatrix* vm) const
        unsigned iOff(rowOffset(bi));
        for (unsigned bj = 0; bj < nColBlocks(); ++bj) {
            unsigned jOff(colOffset(bj));
-//         std::cout << "VMatrix("<< bi << "," << bj << ") with offset (" 
-//                   << iOff << "," << jOff << ")" << std::endl;
+//       std::cout << "VMatrix("<< bi << "," << bj << ") with offset (" 
+//                 << iOff << "," << jOff << ")" << std::endl;
            VMatrix const& m((*this)(bi,bj));
            for (unsigned i = 0; i < m.nRows(); ++i) {
                for (unsigned j = 0; j < m.nCols(); ++j) {
@@ -163,8 +168,8 @@ void BlockMatrix::matrix_product(BlockMatrix& C, BlockMatrix& A, BlockMatrix& B)
    for (unsigned bi = 0; bi < A.nRowBlocks(); ++bi) {
        for (unsigned bj = 0; bj < B.nColBlocks(); ++bj) {
            for (unsigned k = 0; k < A.nColBlocks(); ++k) {
-//             std::cout << "Multiplying block: C(" << bi << "," << bj << ") <- A(" 
-//                       << bi << "," << k << ") x B(" << k << "," << bj << ")" << std::endl;
+//           std::cout << "Multiplying block: C(" << bi << "," << bj << ") <- A(" 
+//                     << bi << "," << k << ") x B(" << k << "," << bj << ")" << std::endl;
                VMatrix::matrix_product(C(bi,bj), A(bi,k), B(k,bj));
            }
        }
