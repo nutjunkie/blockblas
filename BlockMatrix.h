@@ -39,6 +39,9 @@ class BlockMatrix
 
        unsigned nRowBlocks() const { return m_nRowBlocks; }
        unsigned nColBlocks() const { return m_nColBlocks; }
+
+       unsigned nRows() const;
+       unsigned nCols() const;
  
        bool consistent() const;
 
@@ -53,9 +56,6 @@ class BlockMatrix
        void print(const char* = 0) const;
        
     private:
-       unsigned nRows() const;
-       unsigned nCols() const;
-
        unsigned m_nRowBlocks;
        unsigned m_nColBlocks;
        VMatrix*  m_blocks;

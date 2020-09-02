@@ -424,26 +424,24 @@ int test_9()
    std::cout << " test_9: dense <- striped x dense " << std::endl;
    std::cout << "==================================" << std::endl;
 
-   TestFunctor testFunctor(0,0);
-   ZeroFunctor zeroFunctor;
+   TestFunctor  testFunctor;
+   ZeroFunctor  zeroFunctor;
    DebugFunctor debugFunctor;
 
    VMatrix a, b, c, d;
 
-   std::vector<int> stripes = {-3,-1,1,3};
-   //std::vector<int> stripes = {1,3};
+   std::vector<int> stripes = {-8,-2,2,4};
 
-   a.init(5,5, stripes).bind(debugFunctor);
-   b.init(5,5, VMatrix::Dense).bind(testFunctor);
-   c.init(5,5, VMatrix::Dense).bind(zeroFunctor);
-   d.init(5,5, VMatrix::Dense).bind(zeroFunctor);
-
-   a.print("A with stripes");
-   b.print("B is dense");
+   a.init(15,16, stripes).bind(debugFunctor);
+   b.init(16,10, VMatrix::Dense).bind(debugFunctor);
+   c.init(15,10, VMatrix::Dense).bind(zeroFunctor);
+   d.init(15,10, VMatrix::Dense).bind(zeroFunctor);
 
    matrix_product(c, a, b); 
 
-   c.print("Product of striped x dense");
+   //a.print("A with stripes");
+   //b.print("B is dense");
+   //c.print("Product of striped x dense");
 
    // Do a dense version for checking
    a.toDense();
@@ -475,29 +473,24 @@ int test_10()
    std::cout << " test_10: dense <- dense x striped " << std::endl;
    std::cout << "===================================" << std::endl;
 
-   TestFunctor testFunctor(0,0);
-   ZeroFunctor zeroFunctor;
+   ZeroFunctor  zeroFunctor;
    DebugFunctor debugFunctor;
 
    VMatrix a, b, c, d;
+   std::vector<int> stripes = {-8,-2,2,4};
 
-   std::vector<int> stripes = {-3,-1,1,3};
-
-   a.init(5,5, stripes).bind(debugFunctor);
-   b.init(5,5, VMatrix::Dense).bind(testFunctor);
-   c.init(5,5, VMatrix::Dense).bind(zeroFunctor);
-   d.init(5,5, VMatrix::Dense).bind(zeroFunctor);
-
-   a.print();
-   b.print();
-
+   a.init(15,16, VMatrix::Dense).bind(debugFunctor);
+   b.init(16,10, stripes).bind(debugFunctor);
+   c.init(15,10, VMatrix::Dense).bind(zeroFunctor);
+   d.init(15,10, VMatrix::Dense).bind(zeroFunctor);
 
    matrix_product(c, a, b); 
-
-   c.print();
+   //a.print();
+   //b.print();
+   //c.print();
 
    // Do a dense version for checking
-   a.toDense();
+   b.toDense();
    matrix_product(d, a, b); 
 
    double* data_c(c.data());
@@ -534,6 +527,7 @@ int main()
       + test_7()
       + test_8()
       + test_9()
+      + test_10()
       ;
 
    std::cout << std::endl;

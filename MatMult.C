@@ -80,83 +80,65 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
   }else if (storageA == VMatrix::Striped && 
             storageB == VMatrix::Dense   &&
             storageC == VMatrix::Dense) {
-     unsigned nc(B.nCols());
-     unsigned nr(A.nRows());
 
-     std::vector<int> const& stripes(A.stripes());
-     unsigned nStripes(stripes.size());
-     unsigned rowsA(A.nRows());
-     unsigned colsA(A.nCols());
-     unsigned m(std::min(rowsA,colsA));
-  
-     for (unsigned s = 0; s < nStripes; ++s) {
-         int offset(stripes[s]);
+      unsigned rowsC(C.nRows());
+      unsigned colsC(C.nCols());
 
-         if (offset < 0) { // lower triangular
-            unsigned k(std::min(rowsA + offset,colsA));
-//            std::cout << "contraction = " << offset << " running to " << k << std::endl;
-            for (unsigned i = 0; i < k; ++i) {
-                double x(a[i + s*m]);
-                for (unsigned j = 0; j < nc; ++j) {
-//std::cout << "C("<<(i-offset) << "," << j <<") = " << x << " x " << b[i*nc+j]<< std::endl;
-                    c[(i-offset)*nc+j] += x*b[i*nc+j];
-                }
-           }
-        }else {
-          unsigned k(std::min(rowsA, colsA-offset));
-//            std::cout << "contraction = " << offset << " running to " << k << std::endl;
+      std::vector<int> const& stripes(A.stripes());
+      unsigned rowsA(A.nRows());
+      unsigned colsA(A.nCols());
+      unsigned m(std::min(rowsA,colsA));
 
-          for (unsigned i = 0; i < k; ++i) {
-                double x(a[i + s*m]);
-                for (unsigned j = 0; j < nc; ++j) {
-//std::cout << "C("<<(i-offset) << "," << j <<") = " << x << " x " << b[i*nc+j]<< std::endl;
-                    c[i*nc+j] += x*b[(i+offset)*nc+j];
-                }
+      for (unsigned s = 0; s < stripes.size(); ++s) {
+          int offset(stripes[s]);
+          int offC(std::max(0,-offset));
+          int offB(std::max(0, offset));
+          // Contraction length
+          int len = (offset < 0) ? std::min(rowsA + offset,colsA)
+                                 : std::min(rowsA, colsA-offset);
+
+//        std::cout << "offset: " << offset << " offC: " << offC << " offB: " << offB 
+//                  << " contraction: " <<  len  << std::endl;;
+          
+          for (unsigned i = 0; i < len; ++i) {
+              double x(a[i + s*m]);
+              for (unsigned j = 0; j < colsC; ++j) {
+                  c[(i+offC)*colsC+j] += x*b[(i+offB)*colsC+j];
+//                std::cout << "C("<<(i+offC) << "," << j <<") = " << x << " x " 
+//                   << b[(i+offB)*colsC+j] << " = " << c[(i+offC)*colsC+j] << std::endl;
+              }
           }
-        } 
-     }
+      }
+  
 
-  }else if (storageA == VMatrix::Dense   && 
+   }else if (storageA == VMatrix::Dense   && 
             storageB == VMatrix::Striped &&
             storageC == VMatrix::Dense) {
-     unsigned nc(B.nCols());
-     unsigned nr(A.nRows());
 
-     std::vector<int> const& stripes(A.stripes());
-     unsigned nStripes(stripes.size());
-     unsigned rowsA(A.nRows());
-     unsigned colsA(A.nCols());
-     unsigned m(std::min(rowsA,colsA));
+      unsigned rowsC(C.nRows());
+      unsigned colsC(C.nCols());
+
+      std::vector<int> const& stripes(B.stripes());
+      unsigned rowsB(B.nRows());
+      unsigned colsB(B.nCols());
+      unsigned m(std::min(rowsB,colsB));
   
-     for (unsigned s = 0; s < nStripes; ++s) {
-         int offset(stripes[s]);
+      for (unsigned s = 0; s < stripes.size(); ++s) {
+          int offset(stripes[s]);
+          int offC(std::max(0,offset));
+          int offA(std::min(0,offset));
+          // Contraction length
+          int len = (offset < 0) ? std::min(rowsB + offset,colsB)
+                                 : std::min(rowsB, colsB-offset);
 
-         if (offset < 0) { // lower triangular
-            unsigned k(std::min(rowsA + offset,colsA));
-//            std::cout << "contraction = " << offset << " running to " << k << std::endl;
-            for (unsigned i = 0; i < k; ++i) {
-                double x(a[i + s*m]);
-                for (unsigned j = 0; j < nc; ++j) {
-//std::cout << "C("<<(i-offset) << "," << j <<") = " << x << " x " << b[i*nc+j]<< std::endl;
-                    c[(i-offset)*nc+j] += x*b[i*nc+j];
-                }
-           }
-        }else {
-          unsigned k(std::min(rowsA, colsA-offset));
-//            std::cout << "contraction = " << offset << " running to " << k << std::endl;
-
-          for (unsigned i = 0; i < k; ++i) {
-                double x(a[i + s*m]);
-                for (unsigned j = 0; j < nc; ++j) {
-//std::cout << "C("<<(i-offset) << "," << j <<") = " << x << " x " << b[i*nc+j]<< std::endl;
-                    c[i*nc+j] += x*b[(i+offset)*nc+j];
-                }
+          for (unsigned i = 0; i < rowsC; ++i) {
+              for (unsigned j = 0; j < len; ++j) {
+                  c[i*colsC+j+offC] += a[i*rowsB+j-offA] * b[s*m+j];
+              }
           }
-        } 
-     }
+      }
 
-
-
+   //                     ---------- Dense Matrices ----------
    }else if (storageA == VMatrix::Dense && 
              storageB == VMatrix::Dense && 
              storageC == VMatrix::Dense) {
