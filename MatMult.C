@@ -109,11 +109,10 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
               }
           }
       }
-  
 
    }else if (storageA == VMatrix::Dense   && 
-            storageB == VMatrix::Striped &&
-            storageC == VMatrix::Dense) {
+             storageB == VMatrix::Striped &&
+             storageC == VMatrix::Dense) {
 
       unsigned rowsC(C.nRows());
       unsigned colsC(C.nCols());
@@ -135,6 +134,31 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
               for (unsigned j = 0; j < len; ++j) {
                   c[i*colsC+j+offC] += a[i*rowsB+j-offA] * b[s*m+j];
               }
+          }
+      }
+
+   }else if (storageA == VMatrix::Striped && 
+             storageB == VMatrix::Striped &&
+             storageC == VMatrix::Dense) {
+
+      std::vector<int> const& stripesA(A.stripes());
+      std::vector<int> const& stripesB(B.stripes());
+
+      unsigned ma(std::min(A.nRows(),A.nCols()));
+      unsigned mb(std::min(B.nRows(),B.nCols()));
+
+      for (unsigned sa = 0; sa < stripesA.size(); ++sa) {
+          for (unsigned sb = 0; sb < stripesB.size(); ++sb) {
+              // column of A needs to match row of B
+              // element goes into row of A and col of B
+              int colA = std::max(0, stripesA[sa]);
+              int rowB = std::max(0,-stripesA[sa]);
+              if (colA <= rowB) {
+                 colA += rowB;
+                 //c[] += a[sa*ma + j] * b[sb*mb + j]
+              }
+              
+              std::cout << "ColA: " << colA << " RowB: " << rowB << std::endl;
           }
       }
 

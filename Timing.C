@@ -41,7 +41,25 @@ void makeDense(BlockMatrix& bm, unsigned dim, Functor const& functor)
 }
 
 
-//Timing test
+void makeDiagonal(BlockMatrix& bm, unsigned dim, Functor const& functor)
+{ 
+   unsigned nRows(bm.nRowBlocks());
+   unsigned nCols(bm.nColBlocks());
+
+   ZeroFunctor  zeroFunctor;
+   DebugFunctor debugFunctor;
+
+   for (unsigned bi = 0; bi < nRows; ++bi) {
+       for (unsigned bj = 0; bj < nCols; ++bj) {
+           if (bi ==  bj) {
+              bm(bi,bj).init(dim,dim, VMatrix::Dense).bind(functor);
+           }else {
+           }
+       }
+   }
+}
+
+
 int test_1(unsigned blocks, unsigned dim)
 {
    std::cout << "==============================" << std::endl;
@@ -63,20 +81,15 @@ int test_1(unsigned blocks, unsigned dim)
    std::cout << "Tiles:  " << dim << " x " << dim << std::endl;
    std::cout << "Size:   " << A.nRows() << " x " << A.nCols() << std::endl;
    
-   struct timeval tv1, tv2;
-   struct timezone tz;
-   double elapsed;
    
    timerStart();
    matrix_product(C,A,A);
-   elapsed = timerStop();
-   std::cout << "BlockMatrix time: " << elapsed << std::endl;;
+   std::cout << "BlockMatrix time: " << timerStop() << std::endl;;
 
    //  C.print("Product from BlockMatrix multiplication");
    timerStart();
    matrix_product(c,a,a);
-   elapsed = timerStop();
-   std::cout << "VMatrix time:     " << elapsed << std::endl;;
+   std::cout << "VMatrix time:     " << timerStop() << std::endl;
 
    VMatrix b;
    C.toDense(&b);
@@ -103,6 +116,53 @@ int test_1(unsigned blocks, unsigned dim)
 }
 
 
+int test_2(unsigned dim)
+{
+   std::cout << "==================================" << std::endl;
+   std::cout << " test_2: Striped - Dense multiply " << std::endl;
+   std::cout << "==================================" << std::endl;
+
+   VMatrix a, b, c, d;
+   std::vector<int> stripes = {-3,-4, 0 ,4 ,3 };
+   
+   a.init(dim, dim, stripes).bind(TestFunctor());
+   b.init(dim, dim, VMatrix::Dense).bind(TestFunctor());
+   c.init(dim, dim, VMatrix::Dense).bind(ZeroFunctor());
+   d.init(dim, dim, VMatrix::Dense).bind(ZeroFunctor());
+
+   std::cout << "Size:   " << a.nRows() << " x " << a.nCols() << std::endl;
+   
+   timerStart();
+   matrix_product(c,a,b);
+   std::cout << "Striped Matrix time: " << timerStop() << std::endl;
+
+   a.toDense();
+   timerStart();
+   matrix_product(d,a,b);
+   std::cout << "Dense Matrix time:   " << timerStop() << std::endl;
+
+   double* data_c(c.data());
+   double* data_d(d.data());
+   double  res(0);
+   unsigned n(c.nCols()*c.nRows());
+
+   for (unsigned i = 0; i < n; ++i) {
+       res = std::max(res, std::abs( data_c[i] - data_d[i]));
+   }
+
+   std::cout << "Max deviation:    " << res << std::endl;
+
+   std::cout << "-----------------" << std::endl;
+   if (res > 1e-8) {
+      std::cout << "FAIL" << std::endl << std::endl;
+      return 1;
+   } 
+
+   std::cout << "PASS" << std::endl << std::endl;
+   return 0;
+}
+
+
 int main()
 {
    std::cout << "Running tests:" << std::endl;
@@ -112,7 +172,11 @@ int main()
 
    for (unsigned p = 1; p < 8; ++p) {
        unsigned blocks(std::pow(2,p));
-       ok += test_1(blocks, total/blocks);
+//       ok += test_2(blocks, total/blocks);
+   }
+
+   for (unsigned p = 10; p < 13; ++p) {
+       ok += test_2(std::pow(2,p));
    }
 
    std::cout << std::endl;

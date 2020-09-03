@@ -514,10 +514,61 @@ int test_10()
 
 }
 
+
+int test_11()
+{
+   std::cout << "=====================================" << std::endl;
+   std::cout << " test_11 dense <- striped x striped " << std::endl;
+   std::cout << "=====================================" << std::endl;
+
+   ZeroFunctor  zeroFunctor;
+   DebugFunctor debugFunctor;
+
+   VMatrix a, b, c, d;
+   std::vector<int> stripesA = {-2};
+   std::vector<int> stripesB = {-2};
+
+   a.init(6,7, stripesA).bind(debugFunctor);
+   b.init(7,8, stripesB).bind(debugFunctor);
+   c.init(6,8, VMatrix::Dense).bind(zeroFunctor);
+   d.init(6,8, VMatrix::Dense).bind(zeroFunctor);
+
+   matrix_product(c, a, b); 
+   a.print();
+   b.print();
+   c.print();
+
+   // Do a dense version for checking
+   a.toDense();
+   b.toDense();
+   matrix_product(d, a, b); 
+
+   double* data_c(c.data());
+   double* data_d(d.data());
+   double  res(0);
+   unsigned n(c.nCols()*c.nRows());
+
+   for (unsigned i = 0; i < n; ++i) {
+       res += std::abs(data_c[i] - data_d[i]);
+   }
+
+   std::cout << "Matrix residue:   " << res << std::endl;
+   if (res > n*1e-12) {
+      std::cout << "FAIL" << std::endl << std::endl;
+      return 1;
+   } 
+
+   std::cout << "PASS" << std::endl << std::endl;
+   return 0;
+
+}
+
+
 int main()
 {
    std::cout << "Running tests:" << std::endl;
    int ok = 
+/*
         test_1()
       + test_2()
       + test_3()
@@ -528,6 +579,8 @@ int main()
       + test_8()
       + test_9()
       + test_10()
+*/
+      + test_11()
       ;
 
    std::cout << std::endl;
