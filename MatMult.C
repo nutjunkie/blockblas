@@ -115,6 +115,22 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
           }
       }
 
+   }else if (storageA == VMatrix::Banded && 
+             storageB == VMatrix::Dense  &&
+             storageC == VMatrix::Dense) {
+
+      unsigned nvec(B.nCols());
+      std::vector<int> stripes(A.stripes());
+      int kl(stripes[0]);
+      int ku(stripes[1]);
+      int band(kl+ku+1);
+
+      for (unsigned vec = 0; vec < nvec; ++vec) {
+         cblas_dgbmv(CblasRowMajor, CblasNoTrans,
+            A.nRows(), A.nCols(), kl, ku, 1.0, A.data(), band,
+            B.data()+vec, B.nCols(), 1.0, C.data()+vec, C.nCols());
+      }
+
    }else if (storageA == VMatrix::Dense   && 
              storageB == VMatrix::Striped &&
              storageC == VMatrix::Dense) {
@@ -141,6 +157,8 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
               }
           }
       }
+
+
 
    }else if (storageA == VMatrix::Striped && 
              storageB == VMatrix::Striped &&

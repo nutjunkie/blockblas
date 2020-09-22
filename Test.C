@@ -571,22 +571,23 @@ int test_12()
    std::cout << "=========================" << std::endl;
 
    DebugFunctor debugFunctor;
-   VMatrix a;
+   ZeroFunctor  zeroFunctor;
+   VMatrix a, b, c, d;
 
-   a.init(10,10,4,4).bind(debugFunctor);
+   a.init(10,10,1,1).bind(debugFunctor);
+   b.init(10,3).bind(debugFunctor);
+   c.init(10,3).bind(zeroFunctor);
 
-   double t(0);
-   for (int i = 0; i < 5; ++i) {
-       for (int j = 0; j < 5; ++j) {
-           t+=a(i,j);
-       }
-   }
 
    a.print("banded matrix print:");
 
-   a.toDense();
+   matrix_product(c, a, b); 
+   c.print("Banded product:");
 
-   a.print("banded to dense");
+   d.init(10,3).bind(zeroFunctor);
+   a.toDense();
+   matrix_product(d, a, b); 
+   d.print("Dense product:");
 
    return 0;
 }
