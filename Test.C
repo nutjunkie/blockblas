@@ -584,6 +584,10 @@ int test_12()
 
    a.print("banded matrix print:");
 
+   a.toDense();
+
+   a.print("banded to dense");
+
    return 0;
 }
 
