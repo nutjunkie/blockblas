@@ -22,7 +22,7 @@
 class VMatrix
 {
     public:
-       enum StorageT { Zero, Diagonal, Striped, Dense };
+       enum StorageT { Zero, Diagonal, Banded, Striped, Dense };
 
        static std::string toString(StorageT);
 
@@ -39,6 +39,9 @@ class VMatrix
 
        VMatrix& init(size_t const nRows, size_t const nCols, 
           std::vector<int> const& stripes);
+
+       VMatrix& init(size_t const nRows, size_t const nCols, 
+          size_t const lbands, size_t const ubands);
 
        ~VMatrix() { 
           release(); 
@@ -92,6 +95,7 @@ class VMatrix
     private:
        void fillZero(Functor const&);
        void fillDense(Functor const&);
+       void fillBanded(Functor const&);
        void fillStriped(Functor const&);
        void fillDiagonal(Functor const&);
 

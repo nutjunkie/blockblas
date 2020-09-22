@@ -99,14 +99,19 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
 
 //        std::cout << "offset: " << offset << " offC: " << offC << " offB: " << offB 
 //                  << " contraction: " <<  len  << std::endl;;
+
+          offC *= colsC;
+          offB *= colsC;
           
           for (unsigned i = 0; i < len; ++i) {
               double x(a[i + s*m]);
               for (unsigned j = 0; j < colsC; ++j) {
-                  c[(i+offC)*colsC+j] += x*b[(i+offB)*colsC+j];
+                  c[offC+j] += x*b[offB+j];
 //                std::cout << "C("<<(i+offC) << "," << j <<") = " << x << " x " 
 //                   << b[(i+offB)*colsC+j] << " = " << c[(i+offC)*colsC+j] << std::endl;
               }
+              offC += colsC;
+              offB += colsC;
           }
       }
 

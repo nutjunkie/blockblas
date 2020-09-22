@@ -6,6 +6,8 @@
 #include <string>
 #include <cmath>
 #include <sys/time.h>
+#include <stdio.h>
+#include <ctime>
 
 
 struct timeval  time_start;
@@ -118,6 +120,7 @@ int test_1(unsigned blocks, unsigned dim)
 
 int test_2(unsigned dim)
 {
+
    std::cout << "==================================" << std::endl;
    std::cout << " test_2: Striped - Dense multiply " << std::endl;
    std::cout << "==================================" << std::endl;
@@ -131,14 +134,30 @@ int test_2(unsigned dim)
    d.init(dim, dim, VMatrix::Dense).bind(ZeroFunctor());
 
    std::cout << "Size:   " << a.nRows() << " x " << a.nCols() << std::endl;
+   std::cout << "Press Enter to begin" << std::endl;
+   int ch = getchar();
    
-   timerStart();
-   matrix_product(c,a,b);
-   std::cout << "Striped Matrix time: " << timerStop() << std::endl;
+
+   struct timeval  tv1, tv2;
+   struct timezone tz;
+   std::clock_t clock_start = std::clock();
+
+   gettimeofday(&tv1, &tz);
+      matrix_product(c,a,b);
+   std::clock_t clock_end = std::clock();
+
+   gettimeofday(&tv2, &tz);
+   double elapsed = (double) (tv2.tv_sec -tv1.tv_sec) + 
+                    (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
+   std::cout << "Striped Matrix time: " << elapsed << std::endl;
+   std::cout << "Clock time:          " << 1000.0 * (clock_end-clock_start) / CLOCKS_PER_SEC 
+             << " ms\n";
+
+   return 0;
 
    a.toDense();
    timerStart();
-   matrix_product(d,a,b);
+   //matrix_product(d,a,b);
    std::cout << "Dense Matrix time:   " << timerStop() << std::endl;
 
    double* data_c(c.data());
@@ -170,12 +189,7 @@ int main()
    unsigned total(std::pow(2,10));
    int ok(0);
 
-   for (unsigned p = 1; p < 8; ++p) {
-       unsigned blocks(std::pow(2,p));
-//       ok += test_2(blocks, total/blocks);
-   }
-
-   for (unsigned p = 10; p < 13; ++p) {
+   for (unsigned p = 14; p < 15; ++p) {
        ok += test_2(std::pow(2,p));
    }
 

@@ -564,6 +564,31 @@ int test_11()
 }
 
 
+int test_12()
+{
+   std::cout << "=========================" << std::endl;
+   std::cout << " test_12 Banded matrices " << std::endl;
+   std::cout << "=========================" << std::endl;
+
+   DebugFunctor debugFunctor;
+   VMatrix a;
+
+   a.init(10,10,4,4).bind(debugFunctor);
+
+   double t(0);
+   for (int i = 0; i < 5; ++i) {
+       for (int j = 0; j < 5; ++j) {
+           t+=a(i,j);
+       }
+   }
+
+   a.print("banded matrix print:");
+
+   return 0;
+}
+
+
+
 int main()
 {
    std::cout << "Running tests:" << std::endl;
@@ -579,8 +604,9 @@ int main()
       + test_8()
       + test_9()
       + test_10()
-*/
       + test_11()
+*/
+      + test_12()
       ;
 
    std::cout << std::endl;
