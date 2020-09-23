@@ -589,6 +589,21 @@ int test_12()
    matrix_product(d, a, b); 
    d.print("Dense product:");
 
+   double* data_c(c.data());
+   double* data_d(d.data());
+   double  res(0);
+   unsigned n(c.nCols()*c.nRows());
+
+   for (unsigned i = 0; i < n; ++i) {
+       res = std::max(res, std::abs( data_c[i] - data_b[i]));
+   }
+
+   std::cout << "Matrix residue:   " << res << std::endl;
+   if (res > 1e-8) {
+      std::cout << "FAIL" << std::endl << std::endl;
+      return 1;
+   } 
+
    return 0;
 }
 
