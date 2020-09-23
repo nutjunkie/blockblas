@@ -38,13 +38,18 @@ void BlockMatrix::info(const char* msg) const
    for (unsigned row = 0; row < m_nRowBlocks; ++row) {
        for (unsigned col = 0; col < m_nColBlocks; ++col) {
            VMatrix::StorageT s((*this)(row, col).storage());
-           if (s == VMatrix::Striped) {
-              unsigned n((*this)(row, col).stripes().size());
-              std::cout << n << "  ";
+           switch (s) {
+              case VMatrix::Zero:     std::cout << '.';  break;
+              case VMatrix::Diagonal: std::cout << '\\'; break;
+              case VMatrix::Banded:   std::cout << 'b';  break;
+              case VMatrix::Dense:    std::cout << 'X';  break;
 
-           }else {
-              std::cout << chars[s] << "  ";
+              case VMatrix::Striped: {
+                 unsigned n((*this)(row, col).stripes().size());
+                 std::cout << n;
+              } break;
            }
+           std::cout << "   ";
        }   
        std::cout << std::endl;
    }

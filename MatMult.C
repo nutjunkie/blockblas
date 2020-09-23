@@ -76,7 +76,31 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
          }
      }
 
-   //                     ---------- Striped Matrices ----------
+   }else if (storageA == VMatrix::Banded && 
+             storageB == VMatrix::Dense  &&
+             storageC == VMatrix::Dense) {
+
+      unsigned nvec(B.nCols());
+      std::vector<int> stripes(A.stripes());
+      int kl(stripes[0]);
+      int ku(stripes[1]);
+      int band(kl+ku+1);
+
+      if (A.layout() == VMatrix::RowMajor) {
+         for (unsigned vec = 0; vec < nvec; ++vec) {
+            cblas_dgbmv(CblasRowMajor, CblasNoTrans,
+               A.nRows(), A.nCols(), kl, ku, 1.0, A.data(), band,
+               B.data()+vec, B.nCols(), 1.0, C.data()+vec, C.nCols());
+         }
+      }else{
+         for (unsigned vec = 0; vec < nvec; ++vec) {
+            cblas_dgbmv(CblasColMajor, CblasNoTrans,
+               A.nRows(), A.nCols(), kl, ku, 1.0, A.data(), band,
+               B.data()+vec*B.nRows(), 1, 1.0, C.data()+vec*B.nRows(), 1);
+         }
+      }
+
+  //  ---------- Striped Matrices ----------
   }else if (storageA == VMatrix::Striped && 
             storageB == VMatrix::Dense   &&
             storageC == VMatrix::Dense) {
@@ -113,22 +137,6 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
               offC += colsC;
               offB += colsC;
           }
-      }
-
-   }else if (storageA == VMatrix::Banded && 
-             storageB == VMatrix::Dense  &&
-             storageC == VMatrix::Dense) {
-
-      unsigned nvec(B.nCols());
-      std::vector<int> stripes(A.stripes());
-      int kl(stripes[0]);
-      int ku(stripes[1]);
-      int band(kl+ku+1);
-
-      for (unsigned vec = 0; vec < nvec; ++vec) {
-         cblas_dgbmv(CblasRowMajor, CblasNoTrans,
-            A.nRows(), A.nCols(), kl, ku, 1.0, A.data(), band,
-            B.data()+vec, B.nCols(), 1.0, C.data()+vec, C.nCols());
       }
 
    }else if (storageA == VMatrix::Dense   && 
@@ -195,11 +203,17 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
             A.nRows(), A.nCols(), 1.0, A.data(), A.nCols(),
             B.data(), 1, 1.0, C.data(), 1);
       } else {
-         cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
-             B.data(), B.nCols(), 1.0, C.data(), C.nCols());
-      }
 
+         if (A.layout() == VMatrix::RowMajor) {
+            cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+               A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
+                B.data(), B.nCols(), 1.0, C.data(), C.nCols());
+         }else {
+            cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans,
+               A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
+                B.data(), B.nRows(), 1.0, C.data(), C.nRows());
+         }
+      }
 
    }else {
       std::cerr << "VMatrix multiplication not defined for " 

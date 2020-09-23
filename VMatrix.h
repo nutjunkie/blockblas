@@ -23,13 +23,14 @@ class VMatrix
 {
     public:
        enum StorageT { Zero, Diagonal, Banded, Striped, Dense };
+       enum LayoutT { RowMajor, ColumnMajor };
 
        static std::string toString(StorageT);
 
        // On construction, the VMatrix does not have any data associated with it.
        // Allocation is only done when calling bind().
        VMatrix(size_t const nRows = 0, size_t const nCols = 0, 
-          StorageT const storage = Dense) : m_data(0)
+          StorageT const storage = Dense) : m_data(0), m_layout(RowMajor)
        {
           init(nRows, nCols, storage);
        }
@@ -59,10 +60,13 @@ class VMatrix
        //std::shared_ptr<double> bind();
        void bind();
        double* data() { return m_data; }
+       double const* data() const { return m_data; }
 
        // Allocates space for the VMatrix and computes its elements
        // using the functor.
        void bind(Functor const& functor);
+       // Column-major form
+       void bindCM(Functor const& functor);
 
        bool isBound() const { return m_data != 0; }
 
@@ -87,6 +91,8 @@ class VMatrix
        void print(const char* = 0) const;
 
        StorageT storage() const { return m_storage; }
+       LayoutT  layout() const { return m_layout; }
+
        bool isZero() const { return m_storage == Zero; }
        bool isDense() const { return m_storage == Dense; }
        bool isStriped() const { return m_storage == Striped; }
@@ -95,7 +101,9 @@ class VMatrix
     private:
        void fillZero(Functor const&);
        void fillDense(Functor const&);
+       void fillDenseCM(Functor const&);
        void fillBanded(Functor const&);
+       void fillBandedCM(Functor const&);
        void fillStriped(Functor const&);
        void fillDiagonal(Functor const&);
 
@@ -103,8 +111,10 @@ class VMatrix
        size_t m_nCols;       
 
        StorageT m_storage;
+       LayoutT  m_layout;
        std::vector<int> m_stripes;
        double* m_data;
+       
 };
 
 #endif

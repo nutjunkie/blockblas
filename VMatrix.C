@@ -83,7 +83,9 @@ void VMatrix::bind()
          break;
       case Banded:
          n = m_nRows*(m_stripes[0]+m_stripes[1]+1);  // kl + ku +1
-         std::cout << "allocating " << n << " elements for banded matrix" << std::endl;
+         std::cout << "allocating " << n << " elements for banded matrix (" 
+                   << std::setprecision(2) << std::showpoint
+                   << 100.0*n/(m_nRows*m_nCols) << " %)" << std::endl;
          break;
       case Striped:
          n = std::min(m_nRows,m_nCols) * m_stripes.size();
@@ -102,6 +104,7 @@ void VMatrix::bind()
 void VMatrix::bind(Functor const& functor)
 {
    bind();
+   m_layout = RowMajor;
 
    switch (m_storage) {
       case Zero:
@@ -118,6 +121,31 @@ void VMatrix::bind(Functor const& functor)
          break;
       case Dense:
          fillDense(functor);
+         break;
+   }
+}
+
+
+void VMatrix::bindCM(Functor const& functor)
+{
+   bind();
+   m_layout = ColumnMajor;
+
+   switch (m_storage) {
+      case Zero:
+         fillZero(functor);
+         break;
+      case Diagonal:
+         fillDiagonal(functor);
+         break;
+      case Banded:
+         fillBandedCM(functor);
+         break;
+      case Striped:
+         std::cerr << "Column-major storage not supported for striped matrices" << std::endl;
+         break;
+      case Dense:
+         fillDenseCM(functor);
          break;
    }
 }
@@ -143,6 +171,17 @@ void VMatrix::fillDense(Functor const& functor)
 }
 
 
+void VMatrix::fillDenseCM(Functor const& functor)
+{
+   unsigned k(0);
+   for (unsigned j = 0; j < m_nCols; ++j) {
+       for (unsigned i = 0; i < m_nRows; ++i, ++k) {
+           m_data[k] = functor(i,j); 
+       }
+   }
+}
+
+
 void VMatrix::fillBanded(Functor const& functor)
 {
    int kl(m_stripes[0]);
@@ -159,6 +198,25 @@ void VMatrix::fillBanded(Functor const& functor)
            m_data[k] = functor(i,j);
        }
    }
+}
+
+
+void VMatrix::fillBandedCM(Functor const& functor)
+{
+   int kl(m_stripes[0]);
+   int ku(m_stripes[1]);
+   int k;
+
+   for (int j = 0; j < m_nCols; ++j) {
+       int imin = std::max(0, j-ku);
+       int imax = std::min((int)m_nRows, j+kl+1);
+       //std::cout << "i range for j = " << j << " -> (" << imin << "..." << imax << ")" <<std::endl;
+       for (int i = imin ; i < imax; ++i) {
+           k = i-j+ku+j*(kl+ku+1);
+           m_data[k] = functor(i,j);
+       }
+   }
+
 }
 
 
@@ -212,22 +270,27 @@ void VMatrix::fillDiagonal(Functor const& functor)
 void VMatrix::toDense()
 {
    double* data = new double[m_nRows*m_nCols];
-
    unsigned k(0);
-   for (unsigned i = 0; i < m_nRows; ++i) {
-       for (unsigned j = 0; j < m_nCols; ++j, ++k) {
-           data[k] = (*this)(i,j);
-       }
-   }  
+
+   if (m_layout == RowMajor) {
+      for (unsigned i = 0; i < m_nRows; ++i) {
+          for (unsigned j = 0; j < m_nCols; ++j, ++k) {
+              data[k] = (*this)(i,j);
+          }
+      }  
+   }else {
+      for (unsigned j = 0; j < m_nCols; ++j) {
+          for (unsigned i = 0; i < m_nRows; ++i, ++k) {
+              data[k] = (*this)(i,j);
+          }
+      }  
+   }
 
    release();
    m_data = data;
    m_storage = Dense;
    m_stripes.clear();
 }
-
-
-
 
 
 double VMatrix::operator()(unsigned const i, unsigned const j) const
@@ -248,31 +311,47 @@ double VMatrix::operator()(unsigned const i, unsigned const j) const
          int kl(m_stripes[0]);
          int ku(m_stripes[1]);
 //       std::cout << "Access element: (" << i << "," << j << ") -> ";
-         if (std::max(0,(int)i-kl) <= j && j <= std::min((int)m_nCols,(int)i+ku)) {
-            int k(j-i+kl+i*(kl+ku+1));
-            value = m_data[k];
-//          std::cout <<  k << " = ";
+         if (m_layout == RowMajor) {
+            if (std::max(0,(int)i-kl) <= j && j <= std::min((int)m_nCols,(int)i+ku)) {
+               int k(j-i+kl+i*(kl+ku+1));
+               value = m_data[k];
+//             std::cout <<  k << " = ";
+            }
+         }else {
+            if (std::max(0,(int)j-ku) <= i && i <= std::min((int)m_nRows,(int)j+kl)) {
+               int k(i-j+ku+j*(kl+ku+1));
+               value = m_data[k];
+//             std::cout <<  k << " = ";
+            }
          }
 //       std::cout <<  value << std::endl;
       } break;
 
       case Striped: {
-         int stripe(j-i);
-         std::vector<int>::const_iterator it;
-         it = std::find(m_stripes.begin(), m_stripes.end(), stripe);
+         if (m_layout == RowMajor) {
+            int stripe(j-i);
+            std::vector<int>::const_iterator it;
+            it = std::find(m_stripes.begin(), m_stripes.end(), stripe);
 
-         if (it != m_stripes.end()) {
-            // We have hit a non-zero element
-            unsigned m(std::min(m_nRows,m_nCols));
-            unsigned index = std::distance(m_stripes.begin(), it);
-            int ij = (stripe < 0) ? j : i;
-            value = m_data[ij + index*m];
+            if (it != m_stripes.end()) {
+               // We have hit a non-zero element
+               unsigned m(std::min(m_nRows,m_nCols));
+               unsigned index = std::distance(m_stripes.begin(), it);
+               int ij = (stripe < 0) ? j : i;
+               value = m_data[ij + index*m];
+            }
+         }else {
+            std::cerr << "Column-major layout for striped matrices not supported" << std::endl;
          }
 
-         } break;
+      } break;
 
       case Dense:
-         value = m_data[i*m_nCols + j];
+         if (m_layout == RowMajor) {
+            value = m_data[i*m_nCols + j];
+         }else {
+            value = m_data[i + j*m_nRows];
+         }
          break;
    }
 
@@ -297,22 +376,30 @@ void VMatrix::set(unsigned const i, unsigned const j, double value)
         break;
 
       case Striped: {
-         int stripe(j-i);
-         std::vector<int>::iterator it;
-         it = std::find(m_stripes.begin(), m_stripes.end(), stripe);
+         if (m_layout == RowMajor) {
+            int stripe(j-i);
+            std::vector<int>::iterator it;
+            it = std::find(m_stripes.begin(), m_stripes.end(), stripe);
 
-         if (it != m_stripes.end()) {
-            // We have hit a non-zero element
-            unsigned m(std::min(m_nRows,m_nCols));
-            unsigned index = std::distance(m_stripes.begin(), it);
-            int ij = (stripe < 0) ? j : i;
-            m_data[ij + index*m] = value;
+            if (it != m_stripes.end()) {
+               // We have hit a non-zero element
+               unsigned m(std::min(m_nRows,m_nCols));
+               unsigned index = std::distance(m_stripes.begin(), it);
+               int ij = (stripe < 0) ? j : i;
+               m_data[ij + index*m] = value;
+            }
+         }else {
+            std::cerr << "VMatrix::set NYI for Striped ColumnMajor matrices" << std::endl;
          }
 
-         } break;
+      } break;
 
       case Dense:
-         m_data[i*m_nCols + j] = value;
+         if (m_layout == RowMajor) {
+            m_data[i*m_nCols + j] = value;
+         }else {
+            m_data[i + j*m_nRows] = value;
+         }
          break;
    }
 }
@@ -323,8 +410,10 @@ void VMatrix::print(const char* msg) const
    if (msg) {
       std::cout << msg << std::endl;
    }
+   std::cout << std::fixed << std::showpoint << std::setprecision(2);
    for (unsigned i = 0; i < m_nRows; ++i) {
        for (unsigned j = 0; j < m_nCols; ++j) {
+           //std::cout << (*this)(i,j) << "  ";
            std::cout << std::setw(5) << (*this)(i,j) << " ";
        }
        std::cout << std::endl;

@@ -1,66 +1,13 @@
+#include <iostream>
+
 #include "BlockMatrix.h"
 #include "MatMult.h"
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <string>
-#include <cmath>
-#include <sys/time.h>
-#include <stdio.h>
-#include <ctime>
+#include "Timer.h"
+#include "util.h"
 
 
-struct timeval  time_start;
-struct timezone time_zone;
-
-void timerStart() 
-{
-    gettimeofday(&time_start, &time_zone);
-}
-
-double timerStop() 
-{
-   struct timeval time_stop;
-   gettimeofday(&time_stop, &time_zone);
-   return (double) (time_stop.tv_sec -time_start.tv_sec) + 
-          (double) (time_stop.tv_usec-time_start.tv_usec) * 1.e-6;
-}
-
-
-void makeDense(BlockMatrix& bm, unsigned dim, Functor const& functor)
-{ 
-   unsigned nRows(bm.nRowBlocks());
-   unsigned nCols(bm.nColBlocks());
-
-   ZeroFunctor  zeroFunctor;
-   DebugFunctor debugFunctor;
-
-   for (unsigned bi = 0; bi < nRows; ++bi) {
-       for (unsigned bj = 0; bj < nCols; ++bj) {
-           bm(bi,bj).init(dim,dim, VMatrix::Dense).bind(functor);
-       }
-   }
-}
-
-
-void makeDiagonal(BlockMatrix& bm, unsigned dim, Functor const& functor)
-{ 
-   unsigned nRows(bm.nRowBlocks());
-   unsigned nCols(bm.nColBlocks());
-
-   ZeroFunctor  zeroFunctor;
-   DebugFunctor debugFunctor;
-
-   for (unsigned bi = 0; bi < nRows; ++bi) {
-       for (unsigned bj = 0; bj < nCols; ++bj) {
-           if (bi ==  bj) {
-              bm(bi,bj).init(dim,dim, VMatrix::Dense).bind(functor);
-           }else {
-           }
-       }
-   }
-}
-
+ZeroFunctor zeroFunctor;
+TestFunctor testFunctor;
 
 int test_1(unsigned blocks, unsigned dim)
 {
@@ -83,15 +30,18 @@ int test_1(unsigned blocks, unsigned dim)
    std::cout << "Tiles:  " << dim << " x " << dim << std::endl;
    std::cout << "Size:   " << A.nRows() << " x " << A.nCols() << std::endl;
    
+   Timer timer;
    
-   timerStart();
+   timer.start();
    matrix_product(C,A,A);
-   std::cout << "BlockMatrix time: " << timerStop() << std::endl;;
+   timer.stop();
+   std::cout << "BlockMatrix time: " << timer.format() << std::endl;;
 
    //  C.print("Product from BlockMatrix multiplication");
-   timerStart();
+   timer.start();
    matrix_product(c,a,a);
-   std::cout << "VMatrix time:     " << timerStop() << std::endl;
+   timer.stop();
+   std::cout << "VMatrix time:     " << timer.format() << std::endl;
 
    VMatrix b;
    C.toDense(&b);
@@ -120,10 +70,7 @@ int test_1(unsigned blocks, unsigned dim)
 
 int test_2(unsigned dim)
 {
-
-   std::cout << "==================================" << std::endl;
-   std::cout << " test_2: Striped - Dense multiply " << std::endl;
-   std::cout << "==================================" << std::endl;
+   print_header(2, "Striped - Dense multiply");
 
    VMatrix a, b, c, d;
    std::vector<int> stripes = {-3,-4, 0 ,4 ,3 };
@@ -138,53 +85,209 @@ int test_2(unsigned dim)
    int ch = getchar();
    
 
-   struct timeval  tv1, tv2;
-   struct timezone tz;
-   std::clock_t clock_start = std::clock();
+   Timer timer;
 
-   gettimeofday(&tv1, &tz);
-      matrix_product(c,a,b);
-   std::clock_t clock_end = std::clock();
+   timer.start();
+   matrix_product(c,a,b);
+   double elapsed(timer.stop());
 
-   gettimeofday(&tv2, &tz);
-   double elapsed = (double) (tv2.tv_sec -tv1.tv_sec) + 
-                    (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
    std::cout << "Striped Matrix time: " << elapsed << std::endl;
-   std::cout << "Clock time:          " << 1000.0 * (clock_end-clock_start) / CLOCKS_PER_SEC 
-             << " ms\n";
-
-   return 0;
 
    a.toDense();
-   timerStart();
-   //matrix_product(d,a,b);
-   std::cout << "Dense Matrix time:   " << timerStop() << std::endl;
+   timer.start();
+   matrix_product(d,a,b);
+   std::cout << "Dense Matrix time:   " << timer.stop() << std::endl;
 
-   double* data_c(c.data());
-   double* data_d(d.data());
-   double  res(0);
-   unsigned n(c.nCols()*c.nRows());
+   return matrix_residue(d,c);
+}
 
+
+int test_3(unsigned n)
+{
+   print_header(5, "Striped x dense timing test");
+
+   unsigned dim;
+   dim = 16384;
+   dim = 4096;
+   dim = 8192;
+   unsigned hdim(dim);
+
+   VMatrix as, bs, cs;
+   std::vector<int> stripes = {-4,-2,-1,0,1,2,4};
+   as.init(dim, dim, stripes).bind(TestFunctor());
+   bs.init(dim, hdim, VMatrix::Dense).bind(TestFunctor());
+   cs.init(dim, hdim, VMatrix::Dense).bind(ZeroFunctor());
+
+   VMatrix ab, bb, cb;
+   ab.init(dim, dim, 4,4).bindCM(TestFunctor());
+   bb.init(dim, hdim, VMatrix::Dense).bindCM(TestFunctor());
+   cb.init(dim, hdim, VMatrix::Dense).bindCM(ZeroFunctor());
+
+   std::cout << "Size:   " << as.nRows() << " x " << as.nCols() << std::endl;
+   std::cout << "Performing " << n << " iterations for time-averaging" << std::endl;
+   std::cout << "Press Enter to begin:" << std::endl;
+   int ch = getchar();
+
+   Timer timer;
+   timer.start();
    for (unsigned i = 0; i < n; ++i) {
-       res = std::max(res, std::abs( data_c[i] - data_d[i]));
-   }
+       std::cout << "." << std::flush;
+       matrix_product(cs,as,bs);
+   }   
+   double elapsed(timer.stop());
+   std::cout << " Average striped time: " << timer.format(elapsed/n) << std::endl;
 
-   std::cout << "Max deviation:    " << res << std::endl;
+   timer.start();
+   for (unsigned i = 0; i < n; ++i) {
+       std::cout << "." << std::flush;
+       matrix_product(cb, ab, bb);
+   }   
+   elapsed = timer.stop();
+   std::cout << " Average banded  time: " << timer.format(elapsed/n) << std::endl;
+
+
+   VMatrix ds;
+   ds.init(dim, hdim, VMatrix::Dense).bind(ZeroFunctor());
+   as.toDense();
+   timer.start();
+   for (unsigned i = 0; i < n; ++i) {
+       std::cout << "." << std::flush;
+       matrix_product(ds,as,bs);
+   }   
+   elapsed = timer.stop();
+   std::cout << " Average dense   time: " << timer.format(elapsed/n) << std::endl;
 
    std::cout << "-----------------" << std::endl;
-   if (res > 1e-8) {
-      std::cout << "FAIL" << std::endl << std::endl;
-      return 1;
-   } 
 
-   std::cout << "PASS" << std::endl << std::endl;
-   return 0;
+   // This will fail because of the different data orientation
+   return matrix_residue(ds,cs); // + matrix_residue(ds,cb);
+}
+
+
+int test_4(unsigned n)
+{
+   print_header(5, "Banded x dense timing test");
+
+   unsigned dim;
+   dim = 4096;
+   dim = 16384;
+   dim = 8192;
+   unsigned hdim(dim);
+
+   VMatrix a, b, c, d, e, f;
+   std::vector<int> stripes = {-4,-1,0,1,4};
+   
+   a.init(dim, dim, stripes).bind(TestFunctor());
+
+   b.init(dim, hdim, VMatrix::Dense).bindCM(TestFunctor());
+   c.init(dim, hdim, VMatrix::Dense).bindCM(ZeroFunctor());
+   d.init(dim, hdim, VMatrix::Dense).bindCM(ZeroFunctor());
+   e.init(dim, dim, 4, 4).bindCM(TestFunctor());
+   f.init(dim, hdim, VMatrix::Dense).bindCM(ZeroFunctor());
+
+   std::cout << "Size:   " << a.nRows() << " x " << a.nCols() << std::endl;
+   std::cout << "Press Enter to begin" << std::endl;
+   int ch = getchar();
+ 
+   std::cout << "Performing " << n << " iterations for time-averaging" << std::endl;
+
+   Timer timer;
+   timer.start();
+   for (unsigned i = 0; i < n; ++i) {
+       std::cout << "." << std::flush;
+       matrix_product(c,a,b);
+   }   
+   double elapsed(timer.stop());
+   std::cout << " Average striped time: " << timer.format(elapsed/n) << std::endl;
+
+   timer.start();
+   for (unsigned i = 0; i < n; ++i) {
+       std::cout << "." << std::flush;
+       matrix_product(f,e,b);
+   }   
+   elapsed = timer.stop();
+   std::cout << " Average banded  time: " << timer.format(elapsed/n) << std::endl;
+
+   a.toDense();
+   timer.start();
+   for (unsigned i = 0; i < n; ++i) {
+       std::cout << "." << std::flush;
+       matrix_product(d,a,b);
+   }   
+   elapsed = timer.stop();
+   std::cout << " Average dense   time: " << timer.format(elapsed/n) << std::endl;
+
+   std::cout << "-----------------" << std::endl;
+   c.print("cmat");
+   d.print("dmat");
+   f.print("fmat");
+
+   return matrix_residue(d,c) + matrix_residue(d,f);
+}
+
+
+int test_5(unsigned n)
+{
+   print_header(5, "BlockMatrix timing test");
+
+   const unsigned dim(512);
+   const unsigned blocks(8);
+
+   BlockMatrix A(blocks,blocks);
+   BlockMatrix C(blocks,blocks);
+
+   for (unsigned bi = 0; bi < blocks; ++bi) {
+       for (unsigned bj = 0; bj < blocks; ++bj) {
+           if (zeroTest(bi,bj)) {
+              A(bi,bj).init(dim,dim, VMatrix::Dense).bind(testFunctor);
+           }else {
+              A(bi,bj).init(dim,dim, VMatrix::Zero ).bind(testFunctor);
+           }   
+           C(bi,bj).init(dim,dim, VMatrix::Dense).bind(zeroFunctor);
+       }   
+   }   
+
+   A.info("A Matrix:");
+   
+   VMatrix a, c;
+   C.toDense(&c);
+   A.toDense(&a);
+
+   Timer timer;
+
+   std::cout << "Performing " << n << "iterations for time-averaging" << std::endl;
+   timer.start();
+   for (unsigned i = 0; i < n; ++i) {
+       std::cout << "." << std::flush;
+       matrix_product(C,A,A);
+   }   
+   double elapsed(timer.stop());
+   std::cout << " Average BlockMatrix time: " << timer.format(elapsed/n) << std::endl;
+
+   timer.start();
+   for (unsigned i = 0; i < n; ++i) {
+       std::cout << "." << std::flush;
+       matrix_product(c,a,a);
+   }   
+   elapsed = timer.stop();
+   std::cout << " Average VMatrix time:     " << timer.format(elapsed/n) << std::endl;
+
+   std::cout << "-----------------" << std::endl;
+
+   VMatrix b;
+   C.toDense(&b);
+
+   return matrix_residue(b,c);
 }
 
 
 int main()
 {
    std::cout << "Running tests:" << std::endl;
+
+   test_3(3);
+
+   return 0;
 
    unsigned total(std::pow(2,10));
    int ok(0);

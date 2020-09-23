@@ -1,27 +1,25 @@
 #include "BlockMatrix.h"
 #include "MatMult.h"
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <string>
-#include <cmath>
-#include <sys/time.h>
+#include "Timer.h"
+#include "util.h"
+
+
+ZeroFunctor     zeroFunctor;
+DebugFunctor    debugFunctor;
+TestFunctor     testFunctor;
+DiagonalFunctor diagonalFunctor;
+
 
 // Tests the construction and debug printing of the BlockMatrix class for
 // dense matrices
 int test_1()
 {
-   std::cout << "=================================" << std::endl;
-   std::cout << " test_1: Ctor and debug printing " << std::endl;
-   std::cout << "=================================" << std::endl;
+   print_header(1, "Ctor and debug printing");
 
    unsigned nRowBlocks(4);
    unsigned nColBlocks(3);
 
    BlockMatrix bm(nRowBlocks,nColBlocks);
-
-   // Used to fill the matrix entries with index information
-   DebugFunctor debugFunctor;
   
    // Initialize the structure of our BlockMatrix.  Note this does not
    // allocate any memory.
@@ -51,20 +49,13 @@ int test_1()
 // Tests the different storage formats for the tiles.
 int test_2()
 {
-   std::cout << "=======================" << std::endl;
-   std::cout << " test_2: Block formats " << std::endl;
-   std::cout << "=======================" << std::endl;
+   print_header(2, "Block formats");
 
    unsigned nRowBlocks(4);
    unsigned nColBlocks(3);
 
    BlockMatrix bm(nRowBlocks,nColBlocks);
 
-   // Used to fill the matrix entries with index information
-   DebugFunctor    debugFunctor;
-   ZeroFunctor     zeroFunctor;
-   DiagonalFunctor diagonalFunctor;
-  
    // Initialize the structure of our BlockMatrix.  Note in this case
    // we bind the data at the same time.
    bm(0,0).init(2,3,VMatrix::Diagonal).bind(diagonalFunctor);
@@ -95,12 +86,7 @@ int test_2()
 
 int test_3()
 {
-   std::cout << "================================" << std::endl;
-   std::cout << " test_3: dense <- dense x dense " << std::endl;
-   std::cout << "================================" << std::endl;
-
-   TestFunctor testFunctor;
-   ZeroFunctor zeroFunctor;
+   print_header(3, "Dense <- Dense x Dense");
 
    VMatrix a, b, c;
 
@@ -109,43 +95,17 @@ int test_3()
    c.init( 9, 8).bind(zeroFunctor);
    matrix_product(c, a, b); 
 
-   std::string fname("test_3.dat");
-   std::ifstream ifs(fname.c_str(), std::ios::in);
-
-   if (ifs.is_open()) {
-      std::string line;
-      double x, res(0);
-      double* data(c.data());
-      unsigned k(0);
-
-      while (ifs >> x) {
-         res += std::abs(x-data[k]);
-         ++k;
-      }
-      std::cout << "Matrix residue: " << res << std::endl;
-
-      ifs.close();
-      if (res > 1e-12) return 1;
-   }else {
-      std::cerr << "Failed to open flie " << fname << std::endl;
-      return 1;
-   }
-
-   std::cout << "PASS" << std::endl << std::endl;
-   return 0;
+   return matrix_residue(c, "test_3.dat");
 }
 
 
 // Test the block matrix multiplication C = A.A
 int test_4()
 {
-   std::cout << "=====================================" << std::endl;
-   std::cout << " test_4: Block matrix multiplication " << std::endl;
-   std::cout << "=====================================" << std::endl;
+   print_header(4, "Block matrix multiplication");
 
    BlockMatrix A(3,3);
    BlockMatrix C(3,3);
-   ZeroFunctor zeroFunctor;
 
    for (unsigned i = 0; i < 3; ++i) {
        for (unsigned j = 0; j < 3; ++j) {
@@ -165,7 +125,7 @@ int test_4()
    matrix_product(C, A, A);
 
    VMatrix a, b, c;
-   a.init(12,12, VMatrix::Dense).bind(TestFunctor());
+   a.init(12,12, VMatrix::Dense).bind(testFunctor);
    c.init(12,12, VMatrix::Dense).bind(zeroFunctor);
 
    // Compute the matrix product all as one
@@ -173,116 +133,70 @@ int test_4()
 
    C.toDense(&b);
 
-   double* data_c(c.data());
-   double* data_b(b.data());
-   double  res(0);
-   unsigned n(c.nCols()*c.nRows());
-
-   for (unsigned i = 0; i < n; ++i) {
-       res += std::abs(data_c[i] - data_b[i]);
-   }
-
-   std::cout << "Matrix residue:   " << res << std::endl;
-   if (res > n*1e-12) {
-      std::cout << "FAIL" << std::endl << std::endl;
-      return 1;
-   } 
-
-   std::cout << "PASS" << std::endl << std::endl;
-   return 0;
+   return matrix_residue(b,c);
 }
 
 
 //Timing test
-int test_5()
+int test_5(unsigned n)
 {
-   std::cout << "=====================" << std::endl;
-   std::cout << " test_5: Timing test " << std::endl;
-   std::cout << "=====================" << std::endl;
+   print_header(5, "BlockMatrix timing test");
 
-   const unsigned dim(124);
-   const unsigned blocks(2);
+   const unsigned dim(512);
+   const unsigned blocks(8);
 
    BlockMatrix A(blocks,blocks);
    BlockMatrix C(blocks,blocks);
 
-   ZeroFunctor zeroFunctor;
-   DebugFunctor fun1;
-
    for (unsigned bi = 0; bi < blocks; ++bi) {
        for (unsigned bj = 0; bj < blocks; ++bj) {
-           //if (((bi + bj) % 2) == 0) {
-           if (true ) {
-           //if (bi ==  bj) {
-              A(bi,bj).init(dim,dim, VMatrix::Dense).bind(fun1);
-              C(bi,bj).init(dim,dim, VMatrix::Dense).bind(zeroFunctor);
+           if (zeroTest(bi,bj)) {
+              A(bi,bj).init(dim,dim, VMatrix::Dense).bind(testFunctor);
            }else {
-              A(bi,bj).init(dim,dim, VMatrix::Zero ).bind(fun1);
-              C(bi,bj).init(dim,dim, VMatrix::Dense).bind(zeroFunctor);
+              A(bi,bj).init(dim,dim, VMatrix::Zero ).bind(testFunctor);
            }
+           C(bi,bj).init(dim,dim, VMatrix::Dense).bind(zeroFunctor);
        }
    }
 
    A.info("A Matrix:");
-// A.print("A Matrix");
    
    VMatrix a, c;
    C.toDense(&c);
    A.toDense(&a);
 
-   struct timeval tv1, tv2;
-   struct timezone tz;
-   double elapsed;
-   
-   gettimeofday(&tv1, &tz);
-   matrix_product(C,A,A);
-   gettimeofday(&tv2, &tz);
-   elapsed = (double) (tv2.tv_sec-tv1.tv_sec) + (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
-   std::cout << "BlockMatrix time: " << elapsed << std::endl;;
+   Timer timer;
 
- //  C.print("Product from BlockMatrix multiplication");
+   std::cout << "Performing " << n << "iterations for time-averaging" << std::endl;
+   timer.start();
+   for (unsigned i = 0; i < n; ++i) {
+       std::cout << "." << std::flush;
+       matrix_product(C,A,A);
+   }
+   double elapsed(timer.stop());
+   std::cout << " Average BlockMatrix time: " << timer.format(elapsed/n) << std::endl;
 
-   gettimeofday(&tv1, &tz);
-   matrix_product(c,a,a);
-   gettimeofday(&tv2, &tz);
-   elapsed = (double) (tv2.tv_sec-tv1.tv_sec) + (double) (tv2.tv_usec-tv1.tv_usec) * 1.e-6;
-   std::cout << "VMatrix time:     " << elapsed << std::endl;;
-
+   timer.start();
+   for (unsigned i = 0; i < n; ++i) {
+       std::cout << "." << std::flush;
+       matrix_product(c,a,a);
+   }
+   elapsed = timer.stop();
+   std::cout << " Average VMatrix time:     " << timer.format(elapsed/n) << std::endl;
 
    std::cout << "-----------------" << std::endl;
 
    VMatrix b;
    C.toDense(&b);
 
-   double* data_c(c.data());
-   double* data_b(b.data());
-   double  res(0);
-   unsigned n(c.nCols()*c.nRows());
-
-   for (unsigned i = 0; i < n; ++i) {
-       res = std::max(res, std::abs( data_c[i] - data_b[i]));
-   }
-
-   std::cout << "Max deviation:    " << res << std::endl;
-   if (res > 1e-8) {
-      std::cout << "FAIL" << std::endl << std::endl;
-      return 1;
-   } 
-
-   std::cout << "PASS" << std::endl << std::endl;
-   return 0;
+   return matrix_residue(b,c);
 }
 
 
 
 int test_6()
 {
-   std::cout << "===============================" << std::endl;
-   std::cout << " test_6: dense <- diag x dense " << std::endl;
-   std::cout << "===============================" << std::endl;
-
-   TestFunctor testFunctor(0,0);
-   ZeroFunctor zeroFunctor;
+   print_header(6, "dense <- diag x dense");
 
    VMatrix a, b, c;
 
@@ -292,42 +206,13 @@ int test_6()
 
    matrix_product(c, a, b); 
 
-   std::string fname("test_6.dat");
-   std::ifstream ifs(fname.c_str(), std::ios::in);
-
-   if (ifs.is_open()) {
-      std::string line;
-      double x, res(0);
-      double* data(c.data());
-      unsigned k(0);
-
-      while (ifs >> x) {
-         res += std::abs(x-data[k]);
-         ++k;
-      }
-      std::cout << "Matrix residue: " << res << std::endl;
-
-      ifs.close();
-      if (res > 1e-12) return 1;
-
-   }else {
-      std::cerr << "Failed to open flie " << fname << std::endl;
-      return 1;
-   }
-
-   std::cout << "PASS" << std::endl << std::endl;
-   return 0;
+   return matrix_residue(c,"test_6.dat");
 }
 
 
 int test_7()
 {
-   std::cout << "===============================" << std::endl;
-   std::cout << " test_7: dense <- dense x diag " << std::endl;
-   std::cout << "===============================" << std::endl;
-
-   TestFunctor testFunctor(0,0);
-   ZeroFunctor zeroFunctor;
+   print_header(7, "dense <- dense x diag");
 
    VMatrix a, b, c;
 
@@ -337,45 +222,13 @@ int test_7()
 
    matrix_product(c, a, b); 
 
-   std::string fname("test_7.dat");
-   std::ifstream ifs(fname.c_str(), std::ios::in);
-
-   if (ifs.is_open()) {
-      std::string line;
-      double x, res(0);
-      double* data(c.data());
-      unsigned k(0);
-
-      while (ifs >> x) {
-         res += std::abs(x-data[k]);
-         ++k;
-      }
-      std::cout << "Matrix residue: " << res << std::endl;
-
-      ifs.close();
-      if (res > 1e-12) {
-         std::cerr << "FAIL: residue too large" << std::endl<< std::endl;
-         return 1;
-      }
-
-   }else {
-      std::cerr << "FAIL: unable to open flie " << fname << std::endl;
-      return 1;
-   }
-
-   std::cout << "PASS" << std::endl << std::endl;
-   return 0;
+   return matrix_residue(c,"test_7.dat");
 }
 
 
 int test_8()
 {
-   std::cout << "==============================" << std::endl;
-   std::cout << " test_8: dense <- diag x diag " << std::endl;
-   std::cout << "==============================" << std::endl;
-
-   TestFunctor testFunctor(0,0);
-   ZeroFunctor zeroFunctor;
+   print_header(8, "dense <- diag x diag");
 
    VMatrix a, b, c;
 
@@ -384,52 +237,17 @@ int test_8()
    c.init(10,10, VMatrix::Dense   ).bind(zeroFunctor);
 
    matrix_product(c, a, b); 
-
-   std::string fname("test_8.dat");
-   std::ifstream ifs(fname.c_str(), std::ios::in);
-
    c.print();
 
-   if (ifs.is_open()) {
-      std::string line;
-      double x, res(0);
-      double* data(c.data());
-      unsigned k(0);
-
-      while (ifs >> x) {
-         res += std::abs(x-data[k]);
-         ++k;
-      }
-      std::cout << "Matrix residue: " << res << std::endl;
-
-      ifs.close();
-      if (res > 1e-12) {
-         std::cerr << "FAIL: residue too large" << std::endl<< std::endl;
-         return 1;
-      }
-
-   }else {
-      std::cerr << "FAIL: unable to open flie " << fname << std::endl;
-      return 1;
-   }
-
-   std::cout << "PASS" << std::endl << std::endl;
-   return 0;
+   return matrix_residue(c,"test_8.dat");
 }
 
 
 int test_9()
 {
-   std::cout << "==================================" << std::endl;
-   std::cout << " test_9: dense <- striped x dense " << std::endl;
-   std::cout << "==================================" << std::endl;
-
-   TestFunctor  testFunctor;
-   ZeroFunctor  zeroFunctor;
-   DebugFunctor debugFunctor;
+   print_header(9, "dense <- striped x dense");
 
    VMatrix a, b, c, d;
-
    std::vector<int> stripes = {-8,-2,2,4};
 
    a.init(15,16, stripes).bind(debugFunctor);
@@ -447,34 +265,13 @@ int test_9()
    a.toDense();
    matrix_product(d, a, b); 
 
-   double* data_c(c.data());
-   double* data_d(d.data());
-   double  res(0);
-   unsigned n(c.nCols()*c.nRows());
-
-   for (unsigned i = 0; i < n; ++i) {
-       res += std::abs(data_c[i] - data_d[i]);
-   }
-
-   std::cout << "Matrix residue:   " << res << std::endl;
-   if (res > n*1e-12) {
-      std::cout << "FAIL" << std::endl << std::endl;
-      return 1;
-   } 
-
-   std::cout << "PASS" << std::endl << std::endl;
-   return 0;
-
+   return  matrix_residue(c,d);
 }
+
 
 int test_10()
 {
-   std::cout << "===================================" << std::endl;
-   std::cout << " test_10: dense <- dense x striped " << std::endl;
-   std::cout << "===================================" << std::endl;
-
-   ZeroFunctor  zeroFunctor;
-   DebugFunctor debugFunctor;
+   print_header(10, "dense <- dense x striped");
 
    VMatrix a, b, c, d;
    std::vector<int> stripes = {-8,-2,2,4};
@@ -493,37 +290,14 @@ int test_10()
    b.toDense();
    matrix_product(d, a, b); 
 
-   double* data_c(c.data());
-   double* data_d(d.data());
-   double  res(0);
-   unsigned n(c.nCols()*c.nRows());
-
-   for (unsigned i = 0; i < n; ++i) {
-       res += std::abs(data_c[i] - data_d[i]);
-   }
-
-
-   std::cout << "Matrix residue:   " << res << std::endl;
-   if (res > n*1e-12) {
-      std::cout << "FAIL" << std::endl << std::endl;
-      return 1;
-   } 
-
-   std::cout << "PASS" << std::endl << std::endl;
-   return 0;
-
+   return matrix_residue(c,d);
 }
 
 
 int test_11()
 {
-   std::cout << "=====================================" << std::endl;
-   std::cout << " test_11 dense <- striped x striped " << std::endl;
-   std::cout << "=====================================" << std::endl;
-
-   ZeroFunctor  zeroFunctor;
-   DebugFunctor debugFunctor;
-
+   print_header(11, "dense <- striped x striped");
+   
    VMatrix a, b, c, d;
    std::vector<int> stripesA = {-2};
    std::vector<int> stripesB = {-2};
@@ -543,91 +317,82 @@ int test_11()
    b.toDense();
    matrix_product(d, a, b); 
 
-   double* data_c(c.data());
-   double* data_d(d.data());
-   double  res(0);
-   unsigned n(c.nCols()*c.nRows());
-
-   for (unsigned i = 0; i < n; ++i) {
-       res += std::abs(data_c[i] - data_d[i]);
-   }
-
-   std::cout << "Matrix residue:   " << res << std::endl;
-   if (res > n*1e-12) {
-      std::cout << "FAIL" << std::endl << std::endl;
-      return 1;
-   } 
-
-   std::cout << "PASS" << std::endl << std::endl;
-   return 0;
-
+   return matrix_residue(d,c);
 }
 
 
 int test_12()
 {
-   std::cout << "=========================" << std::endl;
-   std::cout << " test_12 Banded matrices " << std::endl;
-   std::cout << "=========================" << std::endl;
+   print_header(12, "Banded matrices");
 
-   DebugFunctor debugFunctor;
-   ZeroFunctor  zeroFunctor;
    VMatrix a, b, c, d;
+   unsigned dim(5);
+   unsigned nvec(3);
 
-   a.init(10,10,1,1).bind(debugFunctor);
-   b.init(10,3).bind(debugFunctor);
-   c.init(10,3).bind(zeroFunctor);
+   a.init(dim,dim,1,1).bind(debugFunctor);
 
+   b.init(dim,nvec).bind(debugFunctor);
+   c.init(dim,nvec).bind(zeroFunctor);
+   d.init(dim,nvec).bind(zeroFunctor);
 
    a.print("banded matrix print:");
+   b.print("vector print:");
 
    matrix_product(c, a, b); 
-   c.print("Banded product:");
-
-   d.init(10,3).bind(zeroFunctor);
+   c.print("product print:");
    a.toDense();
    matrix_product(d, a, b); 
-   d.print("Dense product:");
 
-   double* data_c(c.data());
-   double* data_d(d.data());
-   double  res(0);
-   unsigned n(c.nCols()*c.nRows());
-
-   for (unsigned i = 0; i < n; ++i) {
-       res = std::max(res, std::abs( data_c[i] - data_b[i]));
-   }
-
-   std::cout << "Matrix residue:   " << res << std::endl;
-   if (res > 1e-8) {
-      std::cout << "FAIL" << std::endl << std::endl;
-      return 1;
-   } 
-
-   return 0;
+   return matrix_residue(d,c);
 }
 
+int test_13()
+{
+   print_header(13, "Colum-major matrices");
 
+   VMatrix a, b, c, d;
+   unsigned dim(5);
+   unsigned nvec(3);
+
+   a.init(dim,dim,1,1).bindCM(debugFunctor);
+   b.init(dim,nvec).bindCM(debugFunctor);
+
+   c.init(dim,nvec).bindCM(zeroFunctor);
+   d.init(dim,nvec).bindCM(zeroFunctor);
+
+   a.print("banded matrix print:");
+   b.print("vector print:");
+
+   matrix_product(c, a, b); 
+   c.print("product print:");
+   a.toDense();
+   matrix_product(d, a, b); 
+
+   return matrix_residue(d,c);
+}
 
 int main()
 {
    std::cout << "Running tests:" << std::endl;
-   int ok = 
+   int ok(0);
+   ok = ok 
 /*
-        test_1()
+*/
+      + test_1()
       + test_2()
       + test_3()
       + test_4()
-      + test_5()
       + test_6()
       + test_7()
       + test_8()
       + test_9()
       + test_10()
-      + test_11()
-*/
+//    + test_11()
       + test_12()
+      + test_13()
       ;
+
+    //test_5(5);
 
    std::cout << std::endl;
    std::cout << "Test run finished: ";
