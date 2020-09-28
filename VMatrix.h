@@ -35,6 +35,18 @@ class VMatrix
           init(nRows, nCols, storage);
        }
 
+       VMatrix(VMatrix const& that) : m_data(0), m_layout(RowMajor)
+       {
+          copy(that);
+       }
+
+       VMatrix& operator=(VMatrix const& that)
+       {
+          if (this != &that) copy(that);
+          return *this;
+       }
+
+
        VMatrix& init(size_t const nRows, size_t const nCols, 
           StorageT const storage = Dense);
 
@@ -81,12 +93,18 @@ class VMatrix
 
        void toDense();
 
+       void invert();
+
        // These are convenience functions and are very inefficient
        double operator() (unsigned const i, unsigned const j) const;
        //double& operator() (unsigned const i, unsigned const j);
        void set(unsigned const i, unsigned const j, double value);
+ 
+       VMatrix& operator+=(VMatrix const& that);
+       VMatrix& operator-=(VMatrix const& that);
+       VMatrix& operator-();
 
-       VMatrix& operator*=(VMatrix const& rhs);
+       double norm2() const;
 
        void print(const char* = 0) const;
 
@@ -98,7 +116,7 @@ class VMatrix
        bool isStriped() const { return m_storage == Striped; }
        bool isDiagonal() const { return m_storage == Diagonal; }
 
-    private:
+    protected:
        void fillZero(Functor const&);
        void fillDense(Functor const&);
        void fillDenseCM(Functor const&);
@@ -109,11 +127,15 @@ class VMatrix
 
        size_t m_nRows;       
        size_t m_nCols;       
+       size_t m_nData;       
 
        StorageT m_storage;
        LayoutT  m_layout;
        std::vector<int> m_stripes;
        double* m_data;
+
+   private:
+      void copy(VMatrix const&);
        
 };
 

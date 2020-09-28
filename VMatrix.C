@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include <veclib/veclib.h>
 /******************************************************************************
  * 
  *  Virtual matrix class
@@ -21,6 +22,26 @@ std::string VMatrix::toString(StorageT storage)
    }
 
    return s;
+}
+
+
+void VMatrix::copy(VMatrix const& that)
+{
+   m_nRows = that.m_nRows;
+   m_nCols = that.m_nCols;
+
+   m_storage = that.m_storage;
+   m_layout  = that.m_layout;
+   m_stripes = that.m_stripes;
+   m_data    = 0;
+   
+   if (that.isBound()) {
+      m_nData = that.m_nData;
+      m_data = new double[m_nData];
+      for (unsigned i = 0; i < m_nData; ++i) {    
+          m_data[i] = that.m_data[i];
+      }
+   }
 }
 
 
@@ -72,30 +93,29 @@ void VMatrix::bind()
 //std::shared_ptr<double> VMatrix::bind()
 {
    release();
-   size_t n(0);
 
    switch (m_storage) {
       case Zero:
-         n = 1;
+         m_nData = 1;
          break;
       case Diagonal:
-         n = std::min(m_nRows,m_nCols);
+         m_nData = std::min(m_nRows,m_nCols);
          break;
       case Banded:
-         n = m_nRows*(m_stripes[0]+m_stripes[1]+1);  // kl + ku +1
-         std::cout << "allocating " << n << " elements for banded matrix (" 
+         m_nData = m_nRows*(m_stripes[0]+m_stripes[1]+1);  // kl + ku +1
+         std::cout << "allocating " << m_nData << " elements for banded matrix (" 
                    << std::setprecision(2) << std::showpoint
-                   << 100.0*n/(m_nRows*m_nCols) << " %)" << std::endl;
+                   << 100.0*m_nData/(m_nRows*m_nCols) << " %)" << std::endl;
          break;
       case Striped:
-         n = std::min(m_nRows,m_nCols) * m_stripes.size();
+         m_nData = std::min(m_nRows,m_nCols) * m_stripes.size();
          break;
       case Dense:
-         n = m_nRows*m_nCols;
+         m_nData = m_nRows*m_nCols;
          break;
    }
 
-   m_data = new double[n];
+   m_data = new double[m_nData];
 
    //return std::make_shared(m_data);
 }
@@ -293,6 +313,28 @@ void VMatrix::toDense()
 }
 
 
+void VMatrix::invert()
+{
+    if (m_nRows != m_nCols || m_storage != Dense || !isBound()) {
+       std::cerr << "invert() called on nvalid matrix (" 
+                 << m_nRows << "," << m_nCols << ") -> " << m_storage << std::endl;
+       return;
+    }
+
+    int n(m_nRows);
+    int *ipiv = new int[n+1];
+    int lwork = n*n;
+    int info;
+    double* work = new double[lwork];
+
+    dgetrf_(&n,&n,m_data,&n,ipiv,&info);
+    dgetri_(&n,m_data,&n,ipiv,work,&lwork,&info);
+
+    delete ipiv;
+    delete work;
+}
+
+
 double VMatrix::operator()(unsigned const i, unsigned const j) const
 {
    double value(0.0);
@@ -357,6 +399,66 @@ double VMatrix::operator()(unsigned const i, unsigned const j) const
 
    return value;
 }
+
+
+//This needs to account for the different storage types
+VMatrix& VMatrix::operator+=(VMatrix const& that)
+{
+#ifdef DEBUG
+   assert(that.m_nCols   == m_nCols);
+   assert(that.m_nRows   == m_nRows);
+   assert(that.m_nData   == m_n);
+   assert(that.m_storage == m_storage);
+#endif
+
+   for (unsigned i = 0; i < m_nData; ++i) {
+       m_data[i] += that.m_data[i];
+   }
+
+   return *this;
+}
+
+
+//This needs to account for the different storage types
+VMatrix& VMatrix::operator-=(VMatrix const& that)
+{
+#ifdef DEBUG
+   assert(that.m_nCols   == m_nCols);
+   assert(that.m_nRows   == m_nRows);
+   assert(that.m_nData   == m_n);
+   assert(that.m_storage == m_storage);
+#endif
+
+   for (unsigned i = 0; i < m_nData; ++i) {
+       m_data[i] -= that.m_data[i];
+   }
+
+   return *this;
+}
+
+
+VMatrix& VMatrix::operator-()
+{
+   for (unsigned i = 0; i < m_nData; ++i) {
+       m_data[i] = -m_data[i];
+   }
+
+   return *this;
+}
+
+
+double VMatrix::norm2() const
+{
+   double norm(0.0);
+   for (unsigned i = 0; i < m_nData; ++i) {
+       norm += m_data[i] * m_data[i];
+   }
+
+   return norm;
+}
+
+
+
 
 
 void VMatrix::set(unsigned const i, unsigned const j, double value)

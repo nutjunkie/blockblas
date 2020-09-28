@@ -9,6 +9,22 @@
 #include <iostream>
 #include <iomanip>
 
+
+
+BlockMatrix::BlockMatrix(BlockMatrix const& that)
+{
+   m_nRowBlocks = that.m_nRowBlocks;
+   m_nColBlocks = that.m_nColBlocks;
+   m_blocks = new VMatrix[m_nRowBlocks*m_nColBlocks];
+
+   for (unsigned row = 0; row < m_nRowBlocks; ++row) {
+       for (unsigned col = 0; col < m_nColBlocks; ++col) {
+           m_blocks[row*m_nColBlocks + col] = that(row,col);
+      }
+   }
+}
+
+ 
 void BlockMatrix::info(const char* msg) const
 {
    if (msg) {
@@ -156,6 +172,16 @@ unsigned BlockMatrix::colOffset(unsigned bj) const
 }
 
 
+void BlockMatrix::bind(Functor& functor) 
+{
+   for (unsigned bi = 0; bi < m_nRowBlocks; ++bi) {
+       for (unsigned bj = 0; bj < m_nColBlocks; ++bj) {
+           (*this)(bi,bj).bind(functor);
+       }
+   }
+}
+
+
 void BlockMatrix::toDense(VMatrix* vm) const
 {
    vm->init(nRows(), nCols(), VMatrix::Dense).bind();
@@ -176,3 +202,41 @@ void BlockMatrix::toDense(VMatrix* vm) const
    }
 }
 
+
+BlockMatrix& BlockMatrix::operator+=(BlockMatrix const& that)
+{
+#ifdef DEBUG
+   assert(that.nRowBlocks() == m_nRowBlocks);
+   assert(that.nColBlocks() == m_nColBlocks);
+#endif
+
+   for (unsigned bi = 0; bi < m_nRowBlocks; ++bi) {
+       for (unsigned bj = 0; bj < m_nColBlocks; ++bj) {
+           (*this)(bi,bj) += that(bi,bj);
+       }
+   }
+}
+
+BlockMatrix& BlockMatrix::operator-=(BlockMatrix const& that)
+{
+#ifdef DEBUG
+   assert(that.nRowBlocks() == m_nRowBlocks);
+   assert(that.nColBlocks() == m_nColBlocks);
+#endif
+
+   for (unsigned bi = 0; bi < m_nRowBlocks; ++bi) {
+       for (unsigned bj = 0; bj < m_nColBlocks; ++bj) {
+           (*this)(bi,bj) -= that(bi,bj);
+       }
+   }
+}
+
+
+BlockMatrix& BlockMatrix::operator-()
+{
+   for (unsigned bi = 0; bi < m_nRowBlocks; ++bi) {
+       for (unsigned bj = 0; bj < m_nColBlocks; ++bj) {
+           -(*this)(bi,bj);
+       }
+   }
+}

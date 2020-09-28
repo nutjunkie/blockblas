@@ -1,5 +1,6 @@
 #include "BlockMatrix.h"
 #include "MatMult.h"
+#include "JacobiSolver.h"
 #include "Timer.h"
 #include "util.h"
 
@@ -79,6 +80,10 @@ int test_2()
 
    bm.info();
    bm.print();
+
+   BlockMatrix bm2(bm);
+   bm2.info();
+   bm2.print();
 
    return 0;
 }
@@ -356,7 +361,6 @@ int test_13()
 
    a.init(dim,dim,1,1).bindCM(debugFunctor);
    b.init(dim,nvec).bindCM(debugFunctor);
-
    c.init(dim,nvec).bindCM(zeroFunctor);
    d.init(dim,nvec).bindCM(zeroFunctor);
 
@@ -370,6 +374,61 @@ int test_13()
 
    return matrix_residue(d,c);
 }
+
+int test_14()
+{
+   print_header(14, "Matrix inversion");
+
+   VMatrix a, c;
+   a.init(12,12).bind(testFunctor);
+   c.init(12,12).bind(zeroFunctor);
+
+   VMatrix b(a);
+
+   a.invert();
+   matrix_product(c, a, b); 
+
+   c.print("Should be identity:");
+
+   return 0;
+}
+
+
+int test_15()
+{
+   print_header(15, "Jacobi Solver");
+
+   unsigned nBlocks(4);
+   unsigned blockDim(3);
+
+   BlockMatrix A(nBlocks,nBlocks);
+   BlockMatrix b(nBlocks,1);
+   BlockMatrix x(nBlocks,1);
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       b(row,0).init(blockDim,1,VMatrix::Dense);
+       x(row,0).init(blockDim,1,VMatrix::Dense);
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           // These are the dimensions of the current tile
+           A(row,col).init(blockDim,blockDim,VMatrix::Dense);
+       }
+   }
+
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       b(row,0).bind(debugFunctor);
+       x(row,0).bind(zeroFunctor);
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           A(row,col).bind(TestFunctor(A.rowOffset(row),A.rowOffset(col)));
+       }
+   }
+
+   jacobi_solver(x,A,b);
+
+   return 0;
+}
+
+
 
 int main()
 {
@@ -390,6 +449,8 @@ int main()
 //    + test_11()
       + test_12()
       + test_13()
+      + test_14()
+      + test_15()
       ;
 
     //test_5(5);

@@ -6,7 +6,7 @@
 
 // Accumulates the A.B product into C:
 //    C += A.B 
-void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
+void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
 {
    if (A.nCols() != B.nRows() ||
        B.nCols() != C.nCols() ||
@@ -22,8 +22,8 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
       std::cerr << "Unbound matrix encountered in VMatrix::matrix_product" << std::endl;
    }
 
-   VMatrix::StorageT storageA(A.storage());   double* a(A.data());
-   VMatrix::StorageT storageB(B.storage());   double* b(B.data());
+   VMatrix::StorageT storageA(A.storage());   double const* a(A.data());
+   VMatrix::StorageT storageB(B.storage());   double const* b(B.data());
    VMatrix::StorageT storageC(C.storage());   double* c(C.data());
 
 //   std::cerr << "VMatrix multiplication for " << VMatrix::toString(storageC) << " <- " 
@@ -41,7 +41,7 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
              storageC == VMatrix::Diagonal) {
      unsigned nc(C.nCols());
      for (unsigned i = 0; i < A.nCols(); ++i) {
-         c[i] = a[i]*b[i];
+         c[i] += a[i]*b[i];
      }
  
    }else if (storageA == VMatrix::Diagonal && 
@@ -49,7 +49,7 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
              storageC == VMatrix::Dense) {
      unsigned nc(C.nCols());
      for (unsigned i = 0; i < A.nCols(); ++i) {
-         c[i*nc+i] = a[i]*b[i];
+         c[i*nc+i] += a[i]*b[i];
      }
       
    }else if (storageA == VMatrix::Diagonal && 
@@ -60,7 +60,7 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
 
      for (unsigned i = 0; i < nr; ++i) {
          for (unsigned j = 0; j < nc; ++j) {
-             c[i*nc+j] = a[i] * b[i*nc+j];
+             c[i*nc+j] += a[i] * b[i*nc+j];
          }
      }
 
@@ -72,7 +72,7 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
 
      for (unsigned i = 0; i < nr; ++i) {
          for (unsigned j = 0; j < nc; ++j) {
-             c[i*nc+j] = a[i*nc+j] * b[j];
+             c[i*nc+j] += a[i*nc+j] * b[j];
          }
      }
 
@@ -118,24 +118,25 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
           int offC(std::max(0,-offset));
           int offB(std::max(0, offset));
           // Contraction length
-          int len = (offset < 0) ? std::min(rowsA + offset,colsA)
+          int len = (offset < 0) ? std::min(rowsA+offset, colsA)
                                  : std::min(rowsA, colsA-offset);
 
 //        std::cout << "offset: " << offset << " offC: " << offC << " offB: " << offB 
 //                  << " contraction: " <<  len  << std::endl;;
 
-          offC *= colsC;
-          offB *= colsC;
-          
+#pragma omp parallel for
           for (unsigned i = 0; i < len; ++i) {
-              double x(a[i + s*m]);
+              double        a0(a[i + s*m]);
+              double const* b0(&b[(offB+i)*colsC]);
+              double*       c0(&c[(offC+i)*colsC]);
+
+/*
+              cblas_daxpy(colsC, a0, b0, 1, c0, 1);
+*/
+
               for (unsigned j = 0; j < colsC; ++j) {
-                  c[offC+j] += x*b[offB+j];
-//                std::cout << "C("<<(i+offC) << "," << j <<") = " << x << " x " 
-//                   << b[(i+offB)*colsC+j] << " = " << c[(i+offC)*colsC+j] << std::endl;
+                  c0[j] += a0*b0[j];
               }
-              offC += colsC;
-              offB += colsC;
           }
       }
 
@@ -167,7 +168,6 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
       }
 
 
-
    }else if (storageA == VMatrix::Striped && 
              storageB == VMatrix::Striped &&
              storageC == VMatrix::Dense) {
@@ -189,6 +189,7 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
                  //c[] += a[sa*ma + j] * b[sb*mb + j]
               }
               
+              std::cout << "NYI" << std::endl;
               std::cout << "ColA: " << colA << " RowB: " << rowB << std::endl;
           }
       }
@@ -224,7 +225,7 @@ void matrix_product(VMatrix& C, VMatrix& A, VMatrix& B)
 }
 
 
-void matrix_product(BlockMatrix& C, BlockMatrix& A, BlockMatrix& B)
+void matrix_product(BlockMatrix& C, BlockMatrix const& A, BlockMatrix const& B)
 {
    // Should check matrix dimensions
    for (unsigned bi = 0; bi < A.nRowBlocks(); ++bi) {
@@ -238,4 +239,18 @@ void matrix_product(BlockMatrix& C, BlockMatrix& A, BlockMatrix& B)
    }
 }
 
+
+void matrix_product_sans_diagonal(BlockMatrix& C, BlockMatrix const& A, BlockMatrix const& B)
+{
+   // Should check matrix dimensions
+   for (unsigned bi = 0; bi < A.nRowBlocks(); ++bi) {
+       for (unsigned bj = 0; bj < B.nColBlocks(); ++bj) {
+           for (unsigned k = 0; k < A.nColBlocks(); ++k) {
+               if (bi != k ) {
+                  matrix_product(C(bi,bj), A(bi,k), B(k,bj));
+              }
+           }
+       }
+   }
+}
 
