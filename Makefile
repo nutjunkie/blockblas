@@ -2,8 +2,8 @@ CXX = g++
 CXXFLAGS = -flax-vector-conversions -std=c++11 -g -pg  -O3 -fopenmp -funroll-loops -ffast-math
 LIBS = -framework Accelerate
 
-HEADERS = util.h Timer.h
-OBJECTS = VMatrix.o BlockMatrix.o MatMult.o JacobiSolver.o
+HEADERS = util.h Timer.h VMatrix.h BlockMatrix.h
+OBJECTS =  MatMult.o JacobiSolver.o
 
 %.o : %.C %.h
 	$(CXX) -c $(LIBS) $(CXXFLAGS) $< -o $@

@@ -398,8 +398,8 @@ int test_15()
 {
    print_header(15, "Jacobi Solver");
 
-   unsigned nBlocks(4);
-   unsigned blockDim(3);
+   unsigned nBlocks(50);
+   unsigned blockDim(50);
 
    BlockMatrix A(nBlocks,nBlocks);
    BlockMatrix b(nBlocks,1);

@@ -5,6 +5,8 @@
 #include <veclib/veclib.h>
 
 
+#define MAX_ITER  100
+
 // Solves
 //    A.x = b
 
@@ -13,8 +15,8 @@ void jacobi_solver(BlockMatrix& x,  BlockMatrix const& A, BlockMatrix const& b)
 
    ZeroFunctor zeroFunctor;
 
-   A.print("A matrix");
-   b.print("b vector");
+   //A.print("A matrix");
+   //b.print("b vector");
 
    x(0,0).set(0,0,1.0);
 
@@ -32,34 +34,34 @@ void jacobi_solver(BlockMatrix& x,  BlockMatrix const& A, BlockMatrix const& b)
 
    BlockMatrix work(x);
    BlockMatrix lastx(x);
-   lastx.bind(zeroFunctor);
 
-   for (unsigned iter = 0; iter < 10; ++iter) {
+   for (unsigned iter = 0; iter < MAX_ITER; ++iter) {
        work.bind(zeroFunctor);
        matrix_product_sans_diagonal(work,A,x);
        -work;
        work += b;
 
+	   // This needs to be swapped out for a linear solve using LU
+	   // decomposition.
        x.bind(zeroFunctor);
        for (int i = 0; i < nBlocks; ++i) {
            matrix_product(x(i),Aii(i),work(i));
        }
 
-       x.print("updated x vector");
-       lastx.print("lastx vector");
-
        work = lastx;
        work -= x;
-       work.print("residual  vector");
 
        double res(0.0);
        for (int i = 0; i < nBlocks; ++i) {
            res += work(i).norm2();
            lastx(i) = x(i);
        }
-       lastx.print("lastx now updated ");
 
-       std::cout << "Vector residual = " << std::sqrt(res) << std::endl;
-
+       std::cout << std::scientific;
+       std::cout << "Iter: " << iter << " Vector residual = " << std::sqrt(res) << std::endl;
+       if (std::sqrt(res) < 1e-8) {
+          std::cout << "CONVERGED, iterations "<< iter << std::endl;
+          break;
+       }
    }
 }
