@@ -6,7 +6,6 @@
 #include <string>
 #include <cmath>
 
-#include "VMatrix.h"
 #include "BlockMatrix.h"
 
 
@@ -34,7 +33,8 @@ void print_header(unsigned n, char const* header)
 }
 
 
-int matrix_residue(double const* a, double const* b, unsigned const n)
+template <class T>
+int matrix_residue(T const* a, T const* b, unsigned const n)
 {
    double  res(0);
    double  max(0);
@@ -56,7 +56,8 @@ int matrix_residue(double const* a, double const* b, unsigned const n)
 }
 
 
-int matrix_residue(VMatrix<double> const& a, VMatrix<double> const& b)
+template <class T>
+int matrix_residue(VMatrix<T> const& a, VMatrix<T> const& b)
 {
    unsigned n(a.nCols()*a.nRows());
    unsigned m(a.nCols()*a.nRows());
@@ -94,7 +95,7 @@ int matrix_residue(VMatrix<double> const& a, std::string const& fname)
 
 
 template <class T>
-void makeDense(BlockMatrix<T>& bm, unsigned dim, Functor const& functor)
+void makeDense(BlockMatrix<T>& bm, unsigned dim, Functor<T> const& functor)
 { 
    unsigned nRows(bm.nRowBlocks());
    unsigned nCols(bm.nColBlocks());
@@ -108,7 +109,7 @@ void makeDense(BlockMatrix<T>& bm, unsigned dim, Functor const& functor)
 
 
 template <class T>
-void makeDiagonal(BlockMatrix<T>& bm, unsigned dim, Functor const& functor)
+void makeDiagonal(BlockMatrix<T>& bm, unsigned dim, Functor<T> const& functor)
 { 
    unsigned nRows(bm.nRowBlocks());
    unsigned nCols(bm.nColBlocks());

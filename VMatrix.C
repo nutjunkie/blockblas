@@ -1,34 +1,49 @@
+#include <veclib/veclib.h>
+
 #include "VMatrix.h"
+#include "Types.h"
 
 template <>
 void VMatrix<double>::invert()
-      {
-          if (m_nRows != m_nCols || m_storage != Dense || !isBound()) {
-             std::cerr << "invert() called on nvalid matrix (" 
-                       << m_nRows << "," << m_nCols << ") -> " << m_storage << std::endl;
-             return;
-          }
+{
+    if (m_nRows != m_nCols || m_storage != Dense || !isBound()) {
+       std::cerr << "invert() called on nvalid matrix (" 
+                 << m_nRows << "," << m_nCols << ") -> " << m_storage << std::endl;
+       return;
+    }
 
-          int n(m_nRows);
-          int *ipiv = new int[n+1];
-          int lwork = n*n;
-          int info;
-          double* work = new double[lwork];
+    int n(m_nRows);
+    int *ipiv = new int[n+1];
+    int lwork = n*n;
+    int info;
+    double* work = new double[lwork];
 
-          dgetrf_(&n,&n,m_data,&n,ipiv,&info);
-          dgetri_(&n,m_data,&n,ipiv,work,&lwork,&info);
+    dgetrf_(&n,&n,m_data,&n,ipiv,&info);
+    dgetri_(&n,m_data,&n,ipiv,work,&lwork,&info);
 
-          delete ipiv;
-          delete work;
-      }
+    delete ipiv;
+    delete work;
+}
+
 
 template <>
 double VMatrix<double>::norm2() const
-      {
-         double norm(0.0);
-         for (unsigned i = 0; i < m_nData; ++i) {
-             norm += m_data[i] * m_data[i];
-         }
+{
+   double norm(0.0);
+   for (unsigned i = 0; i < m_nData; ++i) {
+       norm += m_data[i] * m_data[i];
+   }
 
-         return norm;
-      }
+   return norm;
+}
+
+template <>
+double VMatrix<complex>::norm2() const
+{
+   double r(0.0);
+   for (unsigned i = 0; i < m_nData; ++i) {
+       r += std::norm(m_data[i]);
+   }
+
+   return r;
+}

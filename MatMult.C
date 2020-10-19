@@ -22,39 +22,39 @@ void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double
       std::cerr << "Unbound matrix encountered in VMatrix::matrix_product" << std::endl;
    }
 
-   VMatrix<double>::StorageT storageA(A.storage());   double const* a(A.data());
-   VMatrix<double>::StorageT storageB(B.storage());   double const* b(B.data());
-   VMatrix<double>::StorageT storageC(C.storage());   double* c(C.data());
+   StorageT storageA(A.storage());   double const* a(A.data());
+   StorageT storageB(B.storage());   double const* b(B.data());
+   StorageT storageC(C.storage());   double* c(C.data());
 
 //   std::cerr << "VMatrix multiplication for " << VMatrix::toString(storageC) << " <- " 
 //             << VMatrix::toString(storageA) << " x " << VMatrix::toString(storageB) << std::endl;
              
 
    //                     ---------- Zero Matrices ----------
-   if (storageA == VMatrix<double>::Zero || 
-       storageB == VMatrix<double>::Zero) {
+   if (storageA == Zero || 
+       storageB == Zero) {
       // Nothing to do
 
    //                     ---------- Diagonal Matrices ----------
-   }else if (storageA == VMatrix<double>::Diagonal && 
-             storageB == VMatrix<double>::Diagonal &&
-             storageC == VMatrix<double>::Diagonal) {
+   }else if (storageA == Diagonal && 
+             storageB == Diagonal &&
+             storageC == Diagonal) {
      unsigned nc(C.nCols());
      for (unsigned i = 0; i < A.nCols(); ++i) {
          c[i] += a[i]*b[i];
      }
  
-   }else if (storageA == VMatrix<double>::Diagonal && 
-             storageB == VMatrix<double>::Diagonal &&
-             storageC == VMatrix<double>::Dense) {
+   }else if (storageA == Diagonal && 
+             storageB == Diagonal &&
+             storageC == Dense) {
      unsigned nc(C.nCols());
      for (unsigned i = 0; i < A.nCols(); ++i) {
          c[i*nc+i] += a[i]*b[i];
      }
       
-   }else if (storageA == VMatrix<double>::Diagonal && 
-             storageB == VMatrix<double>::Dense &&
-             storageC == VMatrix<double>::Dense) {
+   }else if (storageA == Diagonal && 
+             storageB == Dense &&
+             storageC == Dense) {
      unsigned nc(B.nCols());
      unsigned nr(A.nRows());
 
@@ -64,9 +64,9 @@ void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double
          }
      }
 
-  }else if (storageA == VMatrix<double>::Dense && 
-            storageB == VMatrix<double>::Diagonal &&
-            storageC == VMatrix<double>::Dense) {
+  }else if (storageA == Dense && 
+            storageB == Diagonal &&
+            storageC == Dense) {
      unsigned nc(B.nCols());
      unsigned nr(A.nRows());
 
@@ -76,9 +76,9 @@ void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double
          }
      }
 
-   }else if (storageA == VMatrix<double>::Banded && 
-             storageB == VMatrix<double>::Dense  &&
-             storageC == VMatrix<double>::Dense) {
+   }else if (storageA == Banded && 
+             storageB == Dense  &&
+             storageC == Dense) {
 
       unsigned nvec(B.nCols());
       std::vector<int> stripes(A.stripes());
@@ -86,7 +86,7 @@ void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double
       int ku(stripes[1]);
       int band(kl+ku+1);
 
-      if (A.layout() == VMatrix<double>::RowMajor) {
+      if (A.layout() == RowMajor) {
          for (unsigned vec = 0; vec < nvec; ++vec) {
             cblas_dgbmv(CblasRowMajor, CblasNoTrans,
                A.nRows(), A.nCols(), kl, ku, 1.0, A.data(), band,
@@ -101,9 +101,9 @@ void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double
       }
 
   //  ---------- Striped Matrices ----------
-  }else if (storageA == VMatrix<double>::Striped && 
-            storageB == VMatrix<double>::Dense   &&
-            storageC == VMatrix<double>::Dense) {
+  }else if (storageA == Striped && 
+            storageB == Dense   &&
+            storageC == Dense) {
 
       unsigned rowsC(C.nRows());
       unsigned colsC(C.nCols());
@@ -136,9 +136,9 @@ void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double
           }
       }
 
-   }else if (storageA == VMatrix<double>::Dense   && 
-             storageB == VMatrix<double>::Striped &&
-             storageC == VMatrix<double>::Dense) {
+   }else if (storageA == Dense   && 
+             storageB == Striped &&
+             storageC == Dense) {
 
       unsigned rowsC(C.nRows());
       unsigned colsC(C.nCols());
@@ -164,9 +164,9 @@ void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double
       }
 
 
-   }else if (storageA == VMatrix<double>::Striped && 
-             storageB == VMatrix<double>::Striped &&
-             storageC == VMatrix<double>::Dense) {
+   }else if (storageA == Striped && 
+             storageB == Striped &&
+             storageC == Dense) {
 
       std::vector<int> const& stripesA(A.stripes());
       std::vector<int> const& stripesB(B.stripes());
@@ -191,9 +191,9 @@ void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double
       }
 
    //                     ---------- Dense Matrices ----------
-   }else if (storageA == VMatrix<double>::Dense && 
-             storageB == VMatrix<double>::Dense && 
-             storageC == VMatrix<double>::Dense) {
+   }else if (storageA == Dense && 
+             storageB == Dense && 
+             storageC == Dense) {
       if (C.nCols() == 1) {
          // handle the case when B and C are vectors.
          cblas_dgemv(CblasRowMajor, CblasNoTrans,
@@ -201,7 +201,7 @@ void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double
             B.data(), 1, 1.0, C.data(), 1);
       } else {
 
-         if (A.layout() == VMatrix<double>::RowMajor) {
+         if (A.layout() == RowMajor) {
             cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
                 B.data(), B.nCols(), 1.0, C.data(), C.nCols());
@@ -214,9 +214,9 @@ void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double
 
    }else {
       std::cerr << "VMatrix multiplication not defined for " 
-                << VMatrix<double>::toString(storageC) << " <- " 
-                << VMatrix<double>::toString(storageA) << " x " 
-                << VMatrix<double>::toString(storageB) << std::endl;
+                << toString(storageC) << " <- " 
+                << toString(storageA) << " x " 
+                << toString(storageB) << std::endl;
    }
 }
 

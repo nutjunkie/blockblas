@@ -5,10 +5,10 @@
 #include "util.h"
 
 
-ZeroFunctor     zeroFunctor;
-DebugFunctor    debugFunctor;
-TestFunctor     testFunctor;
-DiagonalFunctor diagonalFunctor;
+ZeroFunctor<double>  zeroFunctor;
+DebugFunctor         debugFunctor;
+TestFunctor          testFunctor;
+DiagonalFunctor      diagonalFunctor;
 
 
 // Tests the construction and debug printing of the BlockMatrix<double> class for

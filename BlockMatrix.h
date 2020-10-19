@@ -10,12 +10,12 @@
  *
  *****************************************************************************/
 
-#include "VMatrix.h"
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include "VMatrix.h"
+#include "Functor.h"
 
-class Functor;
 
 template <class T>
 class BlockMatrix
@@ -90,7 +90,7 @@ class BlockMatrix
            return m_blocks[row*m_nColBlocks + col];
        }
 
-       void bind(Functor& functor) 
+       void bind(Functor<T>& functor) 
        {
           for (unsigned bi = 0; bi < m_nRowBlocks; ++bi) {
               for (unsigned bj = 0; bj < m_nColBlocks; ++bj) {

@@ -10,16 +10,15 @@
  *
  *****************************************************************************/
 
-#include <string>
 #include <cstddef>
 #include <vector>
-#include <memory>
+//#include <memory>
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
 
-#include <veclib/veclib.h>
 #include "Functor.h"
+#include "Types.h"
 
 
 // Matrix class representing a tile of the BlockMatrix. 
@@ -28,24 +27,6 @@ template <class T>
 class VMatrix
 {
     public:
-       enum StorageT { Zero, Diagonal, Banded, Striped, Dense };
-       enum LayoutT { RowMajor, ColumnMajor };
-
-       static std::string toString(StorageT storage)
-       {
-          std::string s;
-          switch (storage) {
-             case Zero:      s = "Zero";      break;
-             case Diagonal:  s = "Diagonal";  break;
-             case Banded:    s = "Banded";    break;
-             case Striped:   s = "Striped";   break;
-             case Dense:     s = "Dense";     break;
-          }
-
-          return s;
-       }
-
-
        // On construction, the VMatrix does not have any data associated with it.
        // Allocation is only done when calling bind().
        VMatrix(size_t const nRows = 0, size_t const nCols = 0, 
@@ -157,7 +138,7 @@ class VMatrix
 
 
        // Allocates space for the VMatrix and computes its elements using the functor.
-       void bind(Functor const& functor)
+       void bind(Functor<T> const& functor)
        {
           bind();
           m_layout = RowMajor;
@@ -182,7 +163,7 @@ class VMatrix
        }
 
        // Column-major form
-       void bindCM(Functor const& functor)
+       void bindCM(Functor<T> const& functor)
        {
           bind();
           m_layout = ColumnMajor;
@@ -424,7 +405,7 @@ class VMatrix
        bool isDiagonal() const { return m_storage == Diagonal; }
 
     protected:
-       void fillZero(Functor const& functor)
+       void fillZero(Functor<T> const& functor)
        {
           // This represents a zero block matrix where the entries are not
           // explicitly stored.  To initialize a zero block matrix use
@@ -433,7 +414,7 @@ class VMatrix
        }
 
 
-       void fillDense(Functor const& functor)
+       void fillDense(Functor<T> const& functor)
        {
           unsigned k(0);
           for (unsigned i = 0; i < m_nRows; ++i) {
@@ -444,7 +425,7 @@ class VMatrix
        }
 
 
-       void fillDenseCM(Functor const& functor)
+       void fillDenseCM(Functor<T> const& functor)
        {
           unsigned k(0);
           for (unsigned j = 0; j < m_nCols; ++j) {
@@ -455,7 +436,7 @@ class VMatrix
        }
 
 
-       void fillBanded(Functor const& functor)
+       void fillBanded(Functor<T> const& functor)
        {
           int kl(m_stripes[0]);
           int ku(m_stripes[1]);
@@ -474,7 +455,7 @@ class VMatrix
        }
 
 
-       void fillBandedCM(Functor const& functor)
+       void fillBandedCM(Functor<T> const& functor)
        {
           int kl(m_stripes[0]);
           int ku(m_stripes[1]);
@@ -492,7 +473,7 @@ class VMatrix
        }
 
 
-       void fillStriped(Functor const& functor)
+       void fillStriped(Functor<T> const& functor)
        {
           unsigned nStripes(m_stripes.size());
           unsigned m(std::min(m_nRows,m_nCols));
@@ -525,7 +506,7 @@ class VMatrix
        }
 
 
-       void fillDiagonal(Functor const& functor)
+       void fillDiagonal(Functor<T> const& functor)
        {
           unsigned m(std::min(m_nRows,m_nCols));
           for (unsigned i = 0; i < m; ++i) {

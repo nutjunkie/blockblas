@@ -11,24 +11,29 @@
  *****************************************************************************/
 
 #include <cmath>
+#include "Types.h"
+
+
 
 // Function prototype used for evaluating elements of a given sub matrix 
 
+template <class T>
 class Functor
 {
    public:
-      virtual double operator()(unsigned const i, unsigned const j) const = 0;
+      virtual T operator()(unsigned const i, unsigned const j) const = 0;
 };
 
 
-class ZeroFunctor : public Functor
+template <class T>
+class ZeroFunctor : public Functor<T>
 {
    public:
-      double operator()(unsigned const i, unsigned const j) const { return 0.0; } 
+      T operator()(unsigned const i, unsigned const j) const { return T(); } 
 };
 
 
-class DiagonalFunctor : public Functor
+class DiagonalFunctor : public Functor<double>
 {
    public:
       double operator()(unsigned const i, unsigned const j) const 
@@ -38,7 +43,7 @@ class DiagonalFunctor : public Functor
 };
 
 
-class DebugFunctor : public Functor
+class DebugFunctor : public Functor<double>
 {
    public:
       double operator()(unsigned const i, unsigned const j) const 
@@ -48,7 +53,19 @@ class DebugFunctor : public Functor
 };
 
 
-class TestFunctor : public Functor
+class ComplexDebugFunctor : public Functor<complex>
+{
+   public:
+      complex operator()(unsigned const i, unsigned const j) const 
+      { 
+         return complex((i+1), 0.01*(j+1)); 
+      }
+};
+
+
+
+
+class TestFunctor : public Functor<double>
 {
    public:
       TestFunctor(unsigned const rowOffset = 0, unsigned const colOffset = 0) :
