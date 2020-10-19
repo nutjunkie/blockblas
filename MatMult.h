@@ -1,10 +1,8 @@
-class BlockMatrix;
-class VMatrix;
+#include "BlockMatrix.h"
 
 // Accumulates the AxB product into C:
 //    C += A x B 
 
-void matrix_product(BlockMatrix& C, BlockMatrix const& A, BlockMatrix const& B);
-void matrix_product_sans_diagonal(BlockMatrix& C, BlockMatrix const& A, BlockMatrix const& B);
-
-void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B);
+void matrix_product(BlockMatrix<double>& C, BlockMatrix<double> const& A, BlockMatrix<double> const& B);
+void matrix_product_sans_diagonal(BlockMatrix<double>& C, BlockMatrix<double> const& A, BlockMatrix<double> const& B);
+void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double> const& B);

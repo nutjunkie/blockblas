@@ -31,7 +31,7 @@ class VMatrix
        enum StorageT { Zero, Diagonal, Banded, Striped, Dense };
        enum LayoutT { RowMajor, ColumnMajor };
 
-       static std::string toString(StorageT)
+       static std::string toString(StorageT storage)
        {
           std::string s;
           switch (storage) {
@@ -65,7 +65,7 @@ class VMatrix
           return *this;
        }
 
-       VMatrix<T>& init(size_t const nRows, size_t const nCols, StorageT const storage)
+       VMatrix<T>& init(size_t const nRows, size_t const nCols, StorageT const storage = Dense)
        {
           release();
           m_nRows   = nRows;
@@ -562,39 +562,5 @@ class VMatrix
          }
       }
 };
-
-
-template <>
-void VMatrix<double>::invert()
-      {
-          if (m_nRows != m_nCols || m_storage != Dense || !isBound()) {
-             std::cerr << "invert() called on nvalid matrix (" 
-                       << m_nRows << "," << m_nCols << ") -> " << m_storage << std::endl;
-             return;
-          }
-
-          int n(m_nRows);
-          int *ipiv = new int[n+1];
-          int lwork = n*n;
-          int info;
-          double* work = new double[lwork];
-
-          dgetrf_(&n,&n,m_data,&n,ipiv,&info);
-          dgetri_(&n,m_data,&n,ipiv,work,&lwork,&info);
-
-          delete ipiv;
-          delete work;
-      }
-
-template <>
-double VMatrix<double>::norm2() const
-      {
-         double norm(0.0);
-         for (unsigned i = 0; i < m_nData; ++i) {
-             norm += m_data[i] * m_data[i];
-         }
-
-         return norm;
-      }
 
 #endif

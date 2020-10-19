@@ -56,7 +56,7 @@ int matrix_residue(double const* a, double const* b, unsigned const n)
 }
 
 
-int matrix_residue(VMatrix const& a, VMatrix const& b)
+int matrix_residue(VMatrix<double> const& a, VMatrix<double> const& b)
 {
    unsigned n(a.nCols()*a.nRows());
    unsigned m(a.nCols()*a.nRows());
@@ -70,7 +70,7 @@ int matrix_residue(VMatrix const& a, VMatrix const& b)
 }
 
 
-int matrix_residue(VMatrix const& a, std::string const& fname)
+int matrix_residue(VMatrix<double> const& a, std::string const& fname)
 {
    std::ifstream ifs(fname.c_str(), std::ios::in);
 
@@ -93,20 +93,22 @@ int matrix_residue(VMatrix const& a, std::string const& fname)
 }
 
 
-void makeDense(BlockMatrix& bm, unsigned dim, Functor const& functor)
+template <class T>
+void makeDense(BlockMatrix<T>& bm, unsigned dim, Functor const& functor)
 { 
    unsigned nRows(bm.nRowBlocks());
    unsigned nCols(bm.nColBlocks());
 
    for (unsigned bi = 0; bi < nRows; ++bi) {
        for (unsigned bj = 0; bj < nCols; ++bj) {
-           bm(bi,bj).init(dim,dim, VMatrix::Dense).bind(functor);
+           bm(bi,bj).init(dim,dim, VMatrix<T>::Dense).bind(functor);
        }
    }
 }
 
 
-void makeDiagonal(BlockMatrix& bm, unsigned dim, Functor const& functor)
+template <class T>
+void makeDiagonal(BlockMatrix<T>& bm, unsigned dim, Functor const& functor)
 { 
    unsigned nRows(bm.nRowBlocks());
    unsigned nCols(bm.nColBlocks());
@@ -114,8 +116,9 @@ void makeDiagonal(BlockMatrix& bm, unsigned dim, Functor const& functor)
    for (unsigned bi = 0; bi < nRows; ++bi) {
        for (unsigned bj = 0; bj < nCols; ++bj) {
            if (bi ==  bj) {
-              bm(bi,bj).init(dim,dim, VMatrix::Dense).bind(functor);
+              bm(bi,bj).init(dim,dim, VMatrix<T>::Dense).bind(functor);
            }else {
+              std::cerr << "WTF" << std::endl;
            }
        }
    }

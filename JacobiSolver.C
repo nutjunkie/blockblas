@@ -10,9 +10,8 @@
 // Solves
 //    A.x = b
 
-void jacobi_solver(BlockMatrix& x,  BlockMatrix const& A, BlockMatrix const& b)
+void jacobi_solver(BlockMatrix<double>& x,  BlockMatrix<double> const& A, BlockMatrix<double> const& b)
 {
-
    ZeroFunctor zeroFunctor;
 
    //A.print("A matrix");
@@ -22,7 +21,7 @@ void jacobi_solver(BlockMatrix& x,  BlockMatrix const& A, BlockMatrix const& b)
 
    // form the diagonal inverse matrices
    unsigned nBlocks(A.nRowBlocks());
-   BlockMatrix Aii(nBlocks, 1);
+   BlockMatrix<double> Aii(nBlocks, 1);
 
    for (int i = 0; i < nBlocks; ++i) {
        Aii(i) = A(i,i);
@@ -32,8 +31,8 @@ void jacobi_solver(BlockMatrix& x,  BlockMatrix const& A, BlockMatrix const& b)
    //Aii.info("diags Matrix");
    //Aii.print("diags Matrix");
 
-   BlockMatrix work(x);
-   BlockMatrix lastx(x);
+   BlockMatrix<double> work(x);
+   BlockMatrix<double> lastx(x);
 
    for (unsigned iter = 0; iter < MAX_ITER; ++iter) {
        work.bind(zeroFunctor);

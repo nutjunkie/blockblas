@@ -6,7 +6,7 @@
 
 // Accumulates the A.B product into C:
 //    C += A.B 
-void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
+void matrix_product(VMatrix<double>& C, VMatrix<double> const& A, VMatrix<double> const& B)
 {
    if (A.nCols() != B.nRows() ||
        B.nCols() != C.nCols() ||
@@ -22,39 +22,39 @@ void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
       std::cerr << "Unbound matrix encountered in VMatrix::matrix_product" << std::endl;
    }
 
-   VMatrix::StorageT storageA(A.storage());   double const* a(A.data());
-   VMatrix::StorageT storageB(B.storage());   double const* b(B.data());
-   VMatrix::StorageT storageC(C.storage());   double* c(C.data());
+   VMatrix<double>::StorageT storageA(A.storage());   double const* a(A.data());
+   VMatrix<double>::StorageT storageB(B.storage());   double const* b(B.data());
+   VMatrix<double>::StorageT storageC(C.storage());   double* c(C.data());
 
 //   std::cerr << "VMatrix multiplication for " << VMatrix::toString(storageC) << " <- " 
 //             << VMatrix::toString(storageA) << " x " << VMatrix::toString(storageB) << std::endl;
              
 
    //                     ---------- Zero Matrices ----------
-   if (storageA == VMatrix::Zero || 
-       storageB == VMatrix::Zero) {
+   if (storageA == VMatrix<double>::Zero || 
+       storageB == VMatrix<double>::Zero) {
       // Nothing to do
 
    //                     ---------- Diagonal Matrices ----------
-   }else if (storageA == VMatrix::Diagonal && 
-             storageB == VMatrix::Diagonal &&
-             storageC == VMatrix::Diagonal) {
+   }else if (storageA == VMatrix<double>::Diagonal && 
+             storageB == VMatrix<double>::Diagonal &&
+             storageC == VMatrix<double>::Diagonal) {
      unsigned nc(C.nCols());
      for (unsigned i = 0; i < A.nCols(); ++i) {
          c[i] += a[i]*b[i];
      }
  
-   }else if (storageA == VMatrix::Diagonal && 
-             storageB == VMatrix::Diagonal &&
-             storageC == VMatrix::Dense) {
+   }else if (storageA == VMatrix<double>::Diagonal && 
+             storageB == VMatrix<double>::Diagonal &&
+             storageC == VMatrix<double>::Dense) {
      unsigned nc(C.nCols());
      for (unsigned i = 0; i < A.nCols(); ++i) {
          c[i*nc+i] += a[i]*b[i];
      }
       
-   }else if (storageA == VMatrix::Diagonal && 
-             storageB == VMatrix::Dense &&
-             storageC == VMatrix::Dense) {
+   }else if (storageA == VMatrix<double>::Diagonal && 
+             storageB == VMatrix<double>::Dense &&
+             storageC == VMatrix<double>::Dense) {
      unsigned nc(B.nCols());
      unsigned nr(A.nRows());
 
@@ -64,9 +64,9 @@ void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
          }
      }
 
-  }else if (storageA == VMatrix::Dense && 
-            storageB == VMatrix::Diagonal &&
-            storageC == VMatrix::Dense) {
+  }else if (storageA == VMatrix<double>::Dense && 
+            storageB == VMatrix<double>::Diagonal &&
+            storageC == VMatrix<double>::Dense) {
      unsigned nc(B.nCols());
      unsigned nr(A.nRows());
 
@@ -76,9 +76,9 @@ void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
          }
      }
 
-   }else if (storageA == VMatrix::Banded && 
-             storageB == VMatrix::Dense  &&
-             storageC == VMatrix::Dense) {
+   }else if (storageA == VMatrix<double>::Banded && 
+             storageB == VMatrix<double>::Dense  &&
+             storageC == VMatrix<double>::Dense) {
 
       unsigned nvec(B.nCols());
       std::vector<int> stripes(A.stripes());
@@ -86,7 +86,7 @@ void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
       int ku(stripes[1]);
       int band(kl+ku+1);
 
-      if (A.layout() == VMatrix::RowMajor) {
+      if (A.layout() == VMatrix<double>::RowMajor) {
          for (unsigned vec = 0; vec < nvec; ++vec) {
             cblas_dgbmv(CblasRowMajor, CblasNoTrans,
                A.nRows(), A.nCols(), kl, ku, 1.0, A.data(), band,
@@ -101,9 +101,9 @@ void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
       }
 
   //  ---------- Striped Matrices ----------
-  }else if (storageA == VMatrix::Striped && 
-            storageB == VMatrix::Dense   &&
-            storageC == VMatrix::Dense) {
+  }else if (storageA == VMatrix<double>::Striped && 
+            storageB == VMatrix<double>::Dense   &&
+            storageC == VMatrix<double>::Dense) {
 
       unsigned rowsC(C.nRows());
       unsigned colsC(C.nCols());
@@ -129,20 +129,16 @@ void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
               double        a0(a[i + s*m]);
               double const* b0(&b[(offB+i)*colsC]);
               double*       c0(&c[(offC+i)*colsC]);
-
-/*
-              cblas_daxpy(colsC, a0, b0, 1, c0, 1);
-*/
-
+//            cblas_daxpy(colsC, a0, b0, 1, c0, 1);
               for (unsigned j = 0; j < colsC; ++j) {
                   c0[j] += a0*b0[j];
               }
           }
       }
 
-   }else if (storageA == VMatrix::Dense   && 
-             storageB == VMatrix::Striped &&
-             storageC == VMatrix::Dense) {
+   }else if (storageA == VMatrix<double>::Dense   && 
+             storageB == VMatrix<double>::Striped &&
+             storageC == VMatrix<double>::Dense) {
 
       unsigned rowsC(C.nRows());
       unsigned colsC(C.nCols());
@@ -168,9 +164,9 @@ void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
       }
 
 
-   }else if (storageA == VMatrix::Striped && 
-             storageB == VMatrix::Striped &&
-             storageC == VMatrix::Dense) {
+   }else if (storageA == VMatrix<double>::Striped && 
+             storageB == VMatrix<double>::Striped &&
+             storageC == VMatrix<double>::Dense) {
 
       std::vector<int> const& stripesA(A.stripes());
       std::vector<int> const& stripesB(B.stripes());
@@ -195,9 +191,9 @@ void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
       }
 
    //                     ---------- Dense Matrices ----------
-   }else if (storageA == VMatrix::Dense && 
-             storageB == VMatrix::Dense && 
-             storageC == VMatrix::Dense) {
+   }else if (storageA == VMatrix<double>::Dense && 
+             storageB == VMatrix<double>::Dense && 
+             storageC == VMatrix<double>::Dense) {
       if (C.nCols() == 1) {
          // handle the case when B and C are vectors.
          cblas_dgemv(CblasRowMajor, CblasNoTrans,
@@ -205,7 +201,7 @@ void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
             B.data(), 1, 1.0, C.data(), 1);
       } else {
 
-         if (A.layout() == VMatrix::RowMajor) {
+         if (A.layout() == VMatrix<double>::RowMajor) {
             cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
                 B.data(), B.nCols(), 1.0, C.data(), C.nCols());
@@ -218,14 +214,14 @@ void matrix_product(VMatrix& C, VMatrix const& A, VMatrix const& B)
 
    }else {
       std::cerr << "VMatrix multiplication not defined for " 
-                << VMatrix::toString(storageC) << " <- " 
-                << VMatrix::toString(storageA) << " x " 
-                << VMatrix::toString(storageB) << std::endl;
+                << VMatrix<double>::toString(storageC) << " <- " 
+                << VMatrix<double>::toString(storageA) << " x " 
+                << VMatrix<double>::toString(storageB) << std::endl;
    }
 }
 
 
-void matrix_product(BlockMatrix& C, BlockMatrix const& A, BlockMatrix const& B)
+void matrix_product(BlockMatrix<double>& C, BlockMatrix<double> const& A, BlockMatrix<double> const& B)
 {
    // Should check matrix dimensions
    for (unsigned bi = 0; bi < A.nRowBlocks(); ++bi) {
@@ -240,7 +236,7 @@ void matrix_product(BlockMatrix& C, BlockMatrix const& A, BlockMatrix const& B)
 }
 
 
-void matrix_product_sans_diagonal(BlockMatrix& C, BlockMatrix const& A, BlockMatrix const& B)
+void matrix_product_sans_diagonal(BlockMatrix<double>& C, BlockMatrix<double> const& A, BlockMatrix<double> const& B)
 {
    // Should check matrix dimensions
    for (unsigned bi = 0; bi < A.nRowBlocks(); ++bi) {

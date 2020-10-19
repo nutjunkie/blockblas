@@ -1,8 +1,8 @@
 #ifndef JACOBISOLVER_H
 #define JACOBISOLVER_H
 
-class BlockMatrix;
+#include "BlockMatrix.h"
 
-void jacobi_solver(BlockMatrix& x,  BlockMatrix const& A, BlockMatrix const& b);
+void jacobi_solver(BlockMatrix<double>& x,  BlockMatrix<double> const& A, BlockMatrix<double> const& b);
 
 #endif
