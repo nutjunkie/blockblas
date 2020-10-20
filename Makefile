@@ -1,6 +1,6 @@
-CXX = g++ 
+CXX = icc
 CXXFLAGS = -flax-vector-conversions -std=c++11 -g -O2
-LIBS = -framework Accelerate
+LIBS = -mkl
 
 
 

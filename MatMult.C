@@ -1,7 +1,7 @@
 #include "VMatrix.h"
 #include "BlockMatrix.h"
 #include <iostream>
-#include <veclib/veclib.h>
+#include <mkl.h>
 
 
 // Accumulates the A.B product into C:
