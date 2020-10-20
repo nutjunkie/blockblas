@@ -58,11 +58,9 @@ class ComplexDebugFunctor : public Functor<complex>
    public:
       complex operator()(unsigned const i, unsigned const j) const 
       { 
-         return complex((i+1), 0.01*(j+1)); 
+         return complex(1.0*(i+1)+ 0.01*(j+1),0.0);
       }
 };
-
-
 
 
 class TestFunctor : public Functor<double>
@@ -81,5 +79,24 @@ class TestFunctor : public Functor<double>
       unsigned m_rowOffset;
       unsigned m_colOffset;
 };
+
+class ComplexTestFunctor : public Functor<complex>
+{
+   public:
+      ComplexTestFunctor(unsigned const rowOffset = 0, unsigned const colOffset = 0) :
+         m_rowOffset(rowOffset), m_colOffset(colOffset) { }
+
+      complex operator()(unsigned const i, unsigned const j) const 
+      { 
+         unsigned offi(i+m_rowOffset);
+         unsigned offj(j+m_colOffset);
+         return (offi == offj) ? complex(1.0 + offi,0.0) : 
+             complex(0.1*std::cos(1.0*(offi+offj)), 0.1*std::sin(1.0*(offi+offj)));
+      }
+   private:
+      unsigned m_rowOffset;
+      unsigned m_colOffset;
+};
+
 
 #endif

@@ -4,7 +4,18 @@
 #include <complex>
 #include <string>
 
+#ifdef __INTEL_COMPILER
+#define MKL_Complex16 std::complex<double>
 typedef std::complex<double> complex;
+#else
+typedef std::complex<double> complex;
+#endif
+
+#ifdef __INTEL_COMPILER
+#include <mkl.h>
+#else
+#include <veclib/veclib.h>
+#endif
 
 enum StorageT { Zero, Diagonal, Banded, Striped, Dense };
 enum LayoutT { RowMajor, ColumnMajor };

@@ -393,6 +393,25 @@ int test_14()
    return 0;
 }
 
+int test_16()
+{
+   print_header(14, "Complex Matrix inversion");
+
+   VMatrix<complex> a, c;
+   a.init(12,12).bind(ComplexTestFunctor());
+   c.init(12,12).bind(ZeroFunctor<complex>());
+
+   VMatrix<complex> b(a);
+   a.print("Original A matrix");
+
+   a.invert();
+   a.print("Inverse A matrix");
+   matrix_product(c, a, b); 
+
+   c.print("Should be identity:");
+
+   return 0;
+}
 
 int test_15()
 {
@@ -451,6 +470,7 @@ int main()
       + test_13()
       + test_14()
       + test_15()
+      + test_16()
       ;
 
     //test_5(5);

@@ -3,12 +3,6 @@
 
 #include <iostream>
 
-#ifdef __INTEL_COMPILER
-#include <mkl.h>
-#else
-#include <veclib/veclib.h>
-#endif
-
 #include "BlockMatrix.h"
 #include "MatMult.h"
 

@@ -228,7 +228,7 @@ class VMatrix
        // These are convenience functions and are very inefficient
        T operator()(unsigned const i, unsigned const j) const
        {
-          T value(0.0);
+          T value = T();
  
           switch (m_storage) {
              case Zero:
@@ -380,21 +380,7 @@ class VMatrix
 
        double norm2() const;
 
-       void print(const char* msg = 0) const
-       {
-          if (msg) {
-             std::cout << msg << std::endl;
-          }
-          std::cout << std::fixed << std::showpoint << std::setprecision(2);
-          for (unsigned i = 0; i < m_nRows; ++i) {
-              for (unsigned j = 0; j < m_nCols; ++j) {
-                  //std::cout << (*this)(i,j) << "  ";
-                  std::cout << std::setw(5) << (*this)(i,j) << " ";
-              }
-              std::cout << std::endl;
-          }
-          std::cout << std::endl;
-       }
+       void print(const char* msg = 0) const;
 
        StorageT storage() const { return m_storage; }
        LayoutT  layout() const { return m_layout; }
@@ -410,7 +396,7 @@ class VMatrix
           // This represents a zero block matrix where the entries are not
           // explicitly stored.  To initialize a zero block matrix use
           // the appropriate storage type and the ZeroFunctor.
-          m_data[0] = 0.0;
+          m_data[0] = T();
        }
 
 
