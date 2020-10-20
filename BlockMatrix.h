@@ -151,7 +151,7 @@ class BlockMatrix
 
        void toDense(VMatrix<T>* vm) const
        {
-          vm->init(nRows(), nCols(), VMatrix<T>::Dense).bind();
+          vm->init(nRows(), nCols(), Dense).bind();
 
           for (unsigned bi = 0; bi < nRowBlocks(); ++bi) {
               unsigned iOff(rowOffset(bi));
@@ -215,14 +215,14 @@ class BlockMatrix
 
           for (unsigned row = 0; row < m_nRowBlocks; ++row) {
               for (unsigned col = 0; col < m_nColBlocks; ++col) {
-                  typename VMatrix<T>::StorageT s((*this)(row, col).storage());
+                  StorageT s((*this)(row, col).storage());
                   switch (s) {
-                     case VMatrix<T>::Zero:     std::cout << '.';  break;
-                     case VMatrix<T>::Diagonal: std::cout << '\\'; break;
-                     case VMatrix<T>::Banded:   std::cout << 'b';  break;
-                     case VMatrix<T>::Dense:    std::cout << 'X';  break;
+                     case Zero:     std::cout << '.';  break;
+                     case Diagonal: std::cout << '\\'; break;
+                     case Banded:   std::cout << 'b';  break;
+                     case Dense:    std::cout << 'X';  break;
 
-                     case VMatrix<T>::Striped: {
+                     case Striped: {
                         unsigned n((*this)(row, col).stripes().size());
                         std::cout << n;
                      } break;

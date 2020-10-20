@@ -9,7 +9,7 @@ typedef std::complex<double> complex;
 enum StorageT { Zero, Diagonal, Banded, Striped, Dense };
 enum LayoutT { RowMajor, ColumnMajor };
 
-std::string toString(StorageT storage)
+inline std::string toString(StorageT storage)
 {
    std::string s;
    switch (storage) {

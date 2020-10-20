@@ -1,7 +1,6 @@
-#include <veclib/veclib.h>
-
 #include "VMatrix.h"
 #include "Types.h"
+#include <mkl.h>
 
 template <>
 void VMatrix<double>::invert()
@@ -18,8 +17,13 @@ void VMatrix<double>::invert()
     int info;
     double* work = new double[lwork];
 
+#ifdef __INTEL_COMPILER
+    dgetrf(&n,&n,m_data,&n,ipiv,&info);
+    dgetri(&n,m_data,&n,ipiv,work,&lwork,&info);
+#else
     dgetrf_(&n,&n,m_data,&n,ipiv,&info);
     dgetri_(&n,m_data,&n,ipiv,work,&lwork,&info);
+#endif
 
     delete ipiv;
     delete work;

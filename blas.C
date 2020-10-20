@@ -1,5 +1,10 @@
 #include <iostream>
+
+#ifdef __INTEL_COMPILER
+#include <mkl.h>
+#else
 #include <veclib/veclib.h>
+#endif
 
 #include "VMatrix.h"
 #include "Timer.h"

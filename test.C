@@ -29,7 +29,7 @@ int test_1()
            // These are the dimensions of the current tile
            unsigned nRows(2*(row+1));
            unsigned nCols(2*(col+1)+1);
-           bm(row,col).init(nRows,nCols,VMatrix<double>::Dense);
+           bm(row,col).init(nRows,nCols,Dense);
        }
    }
 
@@ -59,22 +59,22 @@ int test_2()
 
    // Initialize the structure of our BlockMatrix<double>.  Note in this case
    // we bind the data at the same time.
-   bm(0,0).init(2,3,VMatrix<double>::Diagonal).bind(diagonalFunctor);
-   bm(0,1).init(2,7,VMatrix<double>::Zero    ).bind(zeroFunctor);
-   bm(0,2).init(2,5,VMatrix<double>::Dense   ).bind(debugFunctor);
+   bm(0,0).init(2,3,Diagonal).bind(diagonalFunctor);
+   bm(0,1).init(2,7,Zero    ).bind(zeroFunctor);
+   bm(0,2).init(2,5,Dense   ).bind(debugFunctor);
 
-   bm(1,0).init(6,3,VMatrix<double>::Diagonal).bind(diagonalFunctor);
-   bm(1,1).init(6,7,VMatrix<double>::Diagonal).bind(debugFunctor);
-   bm(1,2).init(6,5,VMatrix<double>::Diagonal).bind(diagonalFunctor);
+   bm(1,0).init(6,3,Diagonal).bind(diagonalFunctor);
+   bm(1,1).init(6,7,Diagonal).bind(debugFunctor);
+   bm(1,2).init(6,5,Diagonal).bind(diagonalFunctor);
 
-   bm(2,0).init(2,3,VMatrix<double>::Diagonal).bind(diagonalFunctor);
-   bm(2,1).init(2,7,VMatrix<double>::Zero    ).bind(zeroFunctor);
-   bm(2,2).init(2,5,VMatrix<double>::Diagonal).bind(diagonalFunctor);
+   bm(2,0).init(2,3,Diagonal).bind(diagonalFunctor);
+   bm(2,1).init(2,7,Zero    ).bind(zeroFunctor);
+   bm(2,2).init(2,5,Diagonal).bind(diagonalFunctor);
 
    std::vector<int> stripes{-4,-2,-1,1};
    std::vector<int> stripes2{-1,1};
 
-   bm(3,0).init(9,3,VMatrix<double>::Zero    ).bind(debugFunctor);
+   bm(3,0).init(9,3,Zero    ).bind(debugFunctor);
    bm(3,1).init(9,7,stripes          ).bind(debugFunctor);
    bm(3,2).init(9,5,stripes2         ).bind(debugFunctor);
 
@@ -130,8 +130,8 @@ int test_4()
    matrix_product(C, A, A);
 
    VMatrix<double> a, b, c;
-   a.init(12,12, VMatrix<double>::Dense).bind(testFunctor);
-   c.init(12,12, VMatrix<double>::Dense).bind(zeroFunctor);
+   a.init(12,12, Dense).bind(testFunctor);
+   c.init(12,12, Dense).bind(zeroFunctor);
 
    // Compute the matrix product all as one
    matrix_product(c,a,a);
@@ -156,11 +156,11 @@ int test_5(unsigned n)
    for (unsigned bi = 0; bi < blocks; ++bi) {
        for (unsigned bj = 0; bj < blocks; ++bj) {
            if (zeroTest(bi,bj)) {
-              A(bi,bj).init(dim,dim, VMatrix<double>::Dense).bind(testFunctor);
+              A(bi,bj).init(dim,dim, Dense).bind(testFunctor);
            }else {
-              A(bi,bj).init(dim,dim, VMatrix<double>::Zero ).bind(testFunctor);
+              A(bi,bj).init(dim,dim, Zero ).bind(testFunctor);
            }
-           C(bi,bj).init(dim,dim, VMatrix<double>::Dense).bind(zeroFunctor);
+           C(bi,bj).init(dim,dim, Dense).bind(zeroFunctor);
        }
    }
 
@@ -179,7 +179,7 @@ int test_5(unsigned n)
        matrix_product(C,A,A);
    }
    double elapsed(timer.stop());
-   std::cout << " Average BlockMatrix<double> time: " << timer.format(elapsed/n) << std::endl;
+   std::cout << " Average BlockMatrix time: " << timer.format(elapsed/n) << std::endl;
 
    timer.start();
    for (unsigned i = 0; i < n; ++i) {
@@ -187,7 +187,7 @@ int test_5(unsigned n)
        matrix_product(c,a,a);
    }
    elapsed = timer.stop();
-   std::cout << " Average VMatrix<double> time:     " << timer.format(elapsed/n) << std::endl;
+   std::cout << " Average VMatrix time:     " << timer.format(elapsed/n) << std::endl;
 
    std::cout << "-----------------" << std::endl;
 
@@ -205,9 +205,9 @@ int test_6()
 
    VMatrix<double> a, b, c;
 
-   a.init(10,10, VMatrix<double>::Diagonal).bind(testFunctor);
-   b.init(10,10, VMatrix<double>::Dense   ).bind(testFunctor);
-   c.init(10,10, VMatrix<double>::Dense   ).bind(zeroFunctor);
+   a.init(10,10, Diagonal).bind(testFunctor);
+   b.init(10,10, Dense   ).bind(testFunctor);
+   c.init(10,10, Dense   ).bind(zeroFunctor);
 
    matrix_product(c, a, b); 
 
@@ -221,9 +221,9 @@ int test_7()
 
    VMatrix<double> a, b, c;
 
-   a.init(10,10, VMatrix<double>::Dense   ).bind(testFunctor);
-   b.init(10,10, VMatrix<double>::Diagonal).bind(testFunctor);
-   c.init(10,10, VMatrix<double>::Dense   ).bind(zeroFunctor);
+   a.init(10,10, Dense   ).bind(testFunctor);
+   b.init(10,10, Diagonal).bind(testFunctor);
+   c.init(10,10, Dense   ).bind(zeroFunctor);
 
    matrix_product(c, a, b); 
 
@@ -237,9 +237,9 @@ int test_8()
 
    VMatrix<double> a, b, c;
 
-   a.init(10,10, VMatrix<double>::Diagonal).bind(testFunctor);
-   b.init(10,10, VMatrix<double>::Diagonal).bind(testFunctor);
-   c.init(10,10, VMatrix<double>::Dense   ).bind(zeroFunctor);
+   a.init(10,10, Diagonal).bind(testFunctor);
+   b.init(10,10, Diagonal).bind(testFunctor);
+   c.init(10,10, Dense   ).bind(zeroFunctor);
 
    matrix_product(c, a, b); 
    c.print();
@@ -256,9 +256,9 @@ int test_9()
    std::vector<int> stripes = {-8,-2,2,4};
 
    a.init(15,16, stripes).bind(debugFunctor);
-   b.init(16,10, VMatrix<double>::Dense).bind(debugFunctor);
-   c.init(15,10, VMatrix<double>::Dense).bind(zeroFunctor);
-   d.init(15,10, VMatrix<double>::Dense).bind(zeroFunctor);
+   b.init(16,10, Dense).bind(debugFunctor);
+   c.init(15,10, Dense).bind(zeroFunctor);
+   d.init(15,10, Dense).bind(zeroFunctor);
 
    matrix_product(c, a, b); 
 
@@ -281,10 +281,10 @@ int test_10()
    VMatrix<double> a, b, c, d;
    std::vector<int> stripes = {-8,-2,2,4};
 
-   a.init(15,16, VMatrix<double>::Dense).bind(debugFunctor);
+   a.init(15,16, Dense).bind(debugFunctor);
    b.init(16,10, stripes).bind(debugFunctor);
-   c.init(15,10, VMatrix<double>::Dense).bind(zeroFunctor);
-   d.init(15,10, VMatrix<double>::Dense).bind(zeroFunctor);
+   c.init(15,10, Dense).bind(zeroFunctor);
+   d.init(15,10, Dense).bind(zeroFunctor);
 
    matrix_product(c, a, b); 
    //a.print();
@@ -309,8 +309,8 @@ int test_11()
 
    a.init(6,7, stripesA).bind(debugFunctor);
    b.init(7,8, stripesB).bind(debugFunctor);
-   c.init(6,8, VMatrix<double>::Dense).bind(zeroFunctor);
-   d.init(6,8, VMatrix<double>::Dense).bind(zeroFunctor);
+   c.init(6,8, Dense).bind(zeroFunctor);
+   d.init(6,8, Dense).bind(zeroFunctor);
 
    matrix_product(c, a, b); 
    a.print();
@@ -406,11 +406,11 @@ int test_15()
    BlockMatrix<double> x(nBlocks,1);
 
    for (unsigned row = 0; row < nBlocks; ++row) {
-       b(row,0).init(blockDim,1,VMatrix<double>::Dense);
-       x(row,0).init(blockDim,1,VMatrix<double>::Dense);
+       b(row,0).init(blockDim,1,Dense);
+       x(row,0).init(blockDim,1,Dense);
        for (unsigned col = 0; col < nBlocks; ++col) {
            // These are the dimensions of the current tile
-           A(row,col).init(blockDim,blockDim,VMatrix<double>::Dense);
+           A(row,col).init(blockDim,blockDim,Dense);
        }
    }
 

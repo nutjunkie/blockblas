@@ -1,5 +1,5 @@
 CXX = icc
-CXXFLAGS = -flax-vector-conversions -std=c++11 -g -pg  -O3 -fopenmp -funroll-loops -ffast-math
+CXXFLAGS = -std=c++11 -g -pg  -O2 -fopenmp -funroll-loops -ffast-math
 LIBS = -mkl
 
 HEADERS = util.h Timer.h VMatrix.h BlockMatrix.h JacobiSolver.h Functor.h

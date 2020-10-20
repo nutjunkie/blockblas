@@ -102,7 +102,7 @@ void makeDense(BlockMatrix<T>& bm, unsigned dim, Functor<T> const& functor)
 
    for (unsigned bi = 0; bi < nRows; ++bi) {
        for (unsigned bj = 0; bj < nCols; ++bj) {
-           bm(bi,bj).init(dim,dim, VMatrix<T>::Dense).bind(functor);
+           bm(bi,bj).init(dim,dim, Dense).bind(functor);
        }
    }
 }
@@ -117,7 +117,7 @@ void makeDiagonal(BlockMatrix<T>& bm, unsigned dim, Functor<T> const& functor)
    for (unsigned bi = 0; bi < nRows; ++bi) {
        for (unsigned bj = 0; bj < nCols; ++bj) {
            if (bi ==  bj) {
-              bm(bi,bj).init(dim,dim, VMatrix<T>::Dense).bind(functor);
+              bm(bi,bj).init(dim,dim, Dense).bind(functor);
            }else {
               std::cerr << "WTF" << std::endl;
            }
