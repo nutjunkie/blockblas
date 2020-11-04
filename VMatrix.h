@@ -46,6 +46,19 @@ class VMatrix
           return *this;
        }
 
+       VMatrix<T>& fromDouble(VMatrix<double> const& that);
+
+       void info(const char* msg = 0) const
+       {
+          if (msg) {
+             std::cout << msg << std::endl;
+          }
+    
+          std::cout << "Storage:    " << toString(m_storage) << std::endl;
+          std::cout << "Num data:   " << m_nData << std::endl;
+          std::cout << "Dimensions: " << m_nRows << "x" << m_nCols << std::endl;
+       }
+
        VMatrix<T>& init(size_t const nRows, size_t const nCols, StorageT const storage = Dense)
        {
           release();
@@ -136,7 +149,49 @@ class VMatrix
           //return std::make_shared(m_data);
        }
 
+       void bind(T const* data)
+       {
+          bind();
+          for (unsigned i = 0; i < m_nData; ++i) {
+              m_data[i] = data[i];
+          }
+       }
 
+       void unbind(T* data)
+       {
+          for (unsigned i = 0; i < m_nData; ++i) {
+              data[i] = m_data[i];
+          }
+       }
+
+       void bindCM(T const* data)
+       {
+          bind();
+          unsigned k = 0;
+          for (unsigned j = 0; j < m_nCols; ++j) {
+              for (unsigned i = 0; i < m_nRows; ++i) {
+                  m_data[i*m_nCols+j] = data[k];
+                  ++k;
+              }
+          }
+       }
+
+       void unbindCM(T const* data)
+       {
+          bind();
+          unsigned k = 0;
+          for (unsigned j = 0; j < m_nCols; ++j) {
+              for (unsigned i = 0; i < m_nRows; ++i) {
+                  data[k] = m_data[i*m_nCols+j];
+                  ++k;
+              }
+          }
+       }
+
+
+
+
+       
        // Allocates space for the VMatrix and computes its elements using the functor.
        void bind(Functor<T> const& functor)
        {
@@ -202,7 +257,8 @@ class VMatrix
 
        void toDense()
        {
-          T* data = new T[m_nRows*m_nCols];
+          size_t n(m_nRows*m_nCols);
+          T* data = new T[n];
           unsigned k(0);
 
           if (m_layout == RowMajor) {
@@ -220,6 +276,7 @@ class VMatrix
           }
 
           release();
+          m_nData = n;
           m_data = data;
           m_storage = Dense;
           m_stripes.clear();
@@ -378,6 +435,20 @@ class VMatrix
           return *this;
        }
 
+       // Adds the value t off the diagonals
+       VMatrix<T>& operator+=(T const t)
+       {
+          unsigned k(std::min(m_nCols, m_nRows));
+          T val;
+          for (unsigned i = 0; i < k; ++i) {
+              val = (*this)(i,i);
+              set(i,i,val+t);
+          }
+          return *this;
+       }
+
+
+
        double norm2() const;
 
        void print(const char* msg = 0) const;
@@ -390,7 +461,9 @@ class VMatrix
        bool isStriped() const { return m_storage == Striped; }
        bool isDiagonal() const { return m_storage == Diagonal; }
 
-    protected:
+// This needs cleaning up 
+      public:
+//    protected:
        void fillZero(Functor<T> const& functor)
        {
           // This represents a zero block matrix where the entries are not

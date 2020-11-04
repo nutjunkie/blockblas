@@ -1,6 +1,28 @@
 #include "VMatrix.h"
 #include "Types.h"
 
+
+VMatrix<complex>& VMatrix<complex>::fromDouble(VMatrix<double> const& that)
+{
+   m_nRows = that.m_nRows;
+   m_nCols = that.m_nCols;
+
+   m_storage = that.m_storage;
+   m_layout  = that.m_layout;
+   m_stripes = that.m_stripes;
+   m_data    = 0;
+   
+   if (that.isBound()) {
+      m_nData = that.m_nData;
+      m_data = new complex[m_nData];
+      for (unsigned i = 0; i < m_nData; ++i) {    
+          m_data[i] = complex(that.m_data[i],0.0);
+      }
+   }
+   return *this;
+}
+
+
 template <>
 void VMatrix<double>::invert()
 {
@@ -70,9 +92,10 @@ double VMatrix<double>::norm2() const
 template <>
 double VMatrix<complex>::norm2() const
 {
-   double r(0.0);
+   double r(0.0), n;
    for (unsigned i = 0; i < m_nData; ++i) {
-       r += std::norm(m_data[i]);
+       n  = std::norm(m_data[i]);
+       r += n*n;
    }
 
    return r;

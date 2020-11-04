@@ -32,6 +32,11 @@ class BlockMatrix
           copy(that);
        }
 
+       BlockMatrix(VMatrix<T> const& that) : m_blocks(0)
+       {
+          copy(that);
+       }
+
        BlockMatrix& operator=(BlockMatrix const& that)
        {
           if (this != &that) copy(that);
@@ -278,6 +283,16 @@ class BlockMatrix
                   m_blocks[row*m_nColBlocks + col] = that(row,col);
              }
           }
+      }
+
+      void copy(VMatrix<T> const& that) 
+      {
+          m_nRowBlocks = 1;
+          m_nColBlocks = 1;
+
+          if (m_blocks) delete [] m_blocks;
+          m_blocks = new VMatrix<T>[1];
+          m_blocks[0] = that;
       }
 };
 #endif

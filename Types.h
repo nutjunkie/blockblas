@@ -2,7 +2,6 @@
 #define TYPES_H
 
 #include <complex>
-#include <string>
 
 #ifdef __INTEL_COMPILER
 #define MKL_Complex16 std::complex<double>
@@ -16,6 +15,8 @@ typedef std::complex<double> complex;
 #else
 #include <veclib/veclib.h>
 #endif
+
+#include <string>
 
 enum StorageT { Zero, Diagonal, Banded, Striped, Dense };
 enum LayoutT { RowMajor, ColumnMajor };

@@ -5,10 +5,10 @@
 #include "util.h"
 
 
-ZeroFunctor<double>  zeroFunctor;
-DebugFunctor         debugFunctor;
-TestFunctor          testFunctor;
-DiagonalFunctor      diagonalFunctor;
+ZeroFunctor<double>      zeroFunctor;
+DebugFunctor             debugFunctor;
+TestFunctor              testFunctor;
+DiagonalFunctor<double>  diagonalFunctor;
 
 
 // Tests the construction and debug printing of the BlockMatrix<double> class for
@@ -447,6 +447,66 @@ int test_15()
    return 0;
 }
 
+int test_17()
+{
+   print_header(17, "Complex Jacobi Solver");
+
+   unsigned nBlocks(5);
+   unsigned blockDim(5);
+
+   BlockMatrix<complex> A(nBlocks,nBlocks);
+   BlockMatrix<complex> b(nBlocks,1);
+   BlockMatrix<complex> x(nBlocks,1);
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       b(row,0).init(blockDim,1,Dense);
+       x(row,0).init(blockDim,1,Dense);
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           // These are the dimensions of the current tile
+           A(row,col).init(blockDim,blockDim,Dense);
+       }
+   }
+
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       b(row,0).bind(ComplexDebugFunctor());
+       x(row,0).bind(ZeroFunctor<complex>());
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           A(row,col).bind(ComplexTestFunctor(A.rowOffset(row),A.rowOffset(col)));
+       }
+   }
+
+   jacobi_solver(x,A,b);
+
+   return 0;
+}
+
+int test_18()
+{
+   print_header(18, "VMatrix -> Block");
+
+   VMatrix<double> a;
+   std::vector<int> stripes{-3,-2,-1,0,1,2,3};
+   a.init(11,11, stripes).bind(StencilFunctor());
+   a.print("VMatrix a - sparse");
+
+   VMatrix<complex> z;
+   z.fromDouble(a);
+   z.info();
+   z.print("VMatrix z - sparse/complex");
+   
+
+   z.toDense();
+   z.info();
+   z.print("VMatrix z - complex");
+
+   BlockMatrix<complex> Z(z);
+   
+   Z.info();
+   Z.print("BlockMatrix Z");
+
+   return 0;
+}
 
 
 int main()
@@ -455,7 +515,6 @@ int main()
    int ok(0);
    ok = ok 
 /*
-*/
       + test_1()
       + test_2()
       + test_3()
@@ -471,6 +530,9 @@ int main()
       + test_14()
       + test_15()
       + test_16()
+      + test_17()
+*/
+      + test_18()
       ;
 
     //test_5(5);

@@ -33,13 +33,19 @@ class ZeroFunctor : public Functor<T>
 };
 
 
-class DiagonalFunctor : public Functor<double>
+template <class T>
+class DiagonalFunctor : public Functor<T>
 {
    public:
-      double operator()(unsigned const i, unsigned const j) const 
+      DiagonalFunctor(T const val = T(1.0)) : m_val(val) { }
+      T operator()(unsigned const i, unsigned const j) const 
       { 
-         return i == j ? 1.0*(i+1) : 0.0; 
+         //return i == j ? 1.0*(i+1) : 0.0; 
+         return i == j ? m_val : T(0.0); 
       } 
+
+    private:
+      T m_val;
 };
 
 
@@ -59,6 +65,24 @@ class ComplexDebugFunctor : public Functor<complex>
       complex operator()(unsigned const i, unsigned const j) const 
       { 
          return complex(1.0*(i+1)+ 0.01*(j+1),0.0);
+      }
+};
+
+
+class StencilFunctor : public Functor<double>
+{
+   public:
+      double operator()(unsigned const i, unsigned const j) const 
+      { 
+         int d(std::abs((int)i-(int)j));
+         double val(0.0);
+         switch (d) {
+            case 0: val = 6.0; break;
+            case 1: val = 3.0; break;
+            case 2: val = 1.0; break;
+            case 3: val = 1.0; break;
+         }
+         return val;
       }
 };
 

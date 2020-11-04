@@ -15,11 +15,12 @@ void jacobi_solver(BlockMatrix<T>& x,  BlockMatrix<T> const& A, BlockMatrix<T> c
 {
    ZeroFunctor<T> zeroFunctor;
 
-   //A.print("A matrix");
-   //b.print("b vector");
+   x(0,0).set(0,0,T(1.0));
 
-   x(0,0).set(0,0,1.0);
-
+   //A.print("A matrix ---");
+   //b.print("b vector ---");
+   //x.print("x vector ---");
+   //
    // form the diagonal inverse matrices
    unsigned nBlocks(A.nRowBlocks());
    BlockMatrix<T> Aii(nBlocks, 1);
@@ -34,6 +35,8 @@ void jacobi_solver(BlockMatrix<T>& x,  BlockMatrix<T> const& A, BlockMatrix<T> c
 
    BlockMatrix<T> work(x);
    BlockMatrix<T> lastx(x);
+
+
 
    for (unsigned iter = 0; iter < MAX_ITER; ++iter) {
        work.bind(zeroFunctor);
@@ -62,7 +65,13 @@ void jacobi_solver(BlockMatrix<T>& x,  BlockMatrix<T> const& A, BlockMatrix<T> c
        if (std::sqrt(res) < 1e-8) {
           std::cout << "CONVERGED, iterations "<< iter << std::endl;
           break;
+          BlockMatrix<T> result(x);
+          result.bind(zeroFunctor);
+          matrix_product(result, A, x);
+          result.print("Prodct A.x");
+          b.print("RHS b");
        }
    }
 }
+
 #endif
