@@ -1,0 +1,2 @@
+#! /bin/bash
+make  libintel64 function="dexample_sparse_rci_c"

@@ -176,9 +176,8 @@ class VMatrix
           }
        }
 
-       void unbindCM(T const* data)
+       void unbindCM(T* data) const
        {
-          bind();
           unsigned k = 0;
           for (unsigned j = 0; j < m_nCols; ++j) {
               for (unsigned i = 0; i < m_nRows; ++i) {
