@@ -36,8 +36,6 @@ void jacobi_solver(BlockMatrix<T>& x,  BlockMatrix<T> const& A, BlockMatrix<T> c
    BlockMatrix<T> work(x);
    BlockMatrix<T> lastx(x);
 
-
-
    for (unsigned iter = 0; iter < MAX_ITER; ++iter) {
        work.bind(zeroFunctor);
        matrix_product_sans_diagonal(work,A,x);

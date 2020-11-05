@@ -111,6 +111,7 @@ class VMatrix
           if (m_data) {
              delete [] m_data;
           }
+          m_data = 0;
        }
 
        T* data() { return m_data; }
@@ -584,13 +585,13 @@ class VMatrix
    private:
       void copy(VMatrix<T> const& that)
       {
-         m_nRows = that.m_nRows;
-         m_nCols = that.m_nCols;
-
+         m_nRows   = that.m_nRows;
+         m_nCols   = that.m_nCols;
          m_storage = that.m_storage;
          m_layout  = that.m_layout;
          m_stripes = that.m_stripes;
-         m_data    = 0;
+
+         release();
    
          if (that.isBound()) {
             m_nData = that.m_nData;

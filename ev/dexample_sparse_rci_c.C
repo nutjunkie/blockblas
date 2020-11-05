@@ -371,10 +371,11 @@ int main()
                    }
 */
 
-//                 std::cout << "Complex root: "<< Ze << std::endl;
+                   std::cout << "Complex root: "<< Ze << std::endl;
 //                 std::cout << "Num RHS:      "<< fpm[23-1] << std::endl;
                    VMatrix<complex> vmAc;
-                   vmAc.fromDouble(-vmA);
+                   vmAc.fromDouble(vmA);
+                   -vmAc;
                    vmAc += Ze;   // overloaded operator only adjusts the diagonal
                    vmAc.toDense();
 //                 vmAc.print("A Matrix");
@@ -392,7 +393,6 @@ int main()
                    BlockMatrix<complex> bmQc(vmQc);
 
                    jacobi_solver(bmQc, bmAc, bmBc);
-                   bmQc.print("Jacobi solution");
 
                    //
                    //!!!!!!!!!!!!!!  Find matrix C = ZeB-A        !!!!!!!!!!!!!!!!!!!!!!!!!
@@ -452,8 +452,8 @@ int main()
 
                    VMatrix<complex> vmDenseA;
                    vmDenseA.init(N,N,Dense).bind(dense_Az);
-//vmDenseA.print("Dense Matrix Ze*B-A from CSR");
-//vmAc.print("My A matrix");
+vmDenseA.print("Dense Matrix Ze*B-A from CSR");
+vmAc.print("My A matrix");
 */
 
                     if (status != SPARSE_STATUS_SUCCESS) {
@@ -468,6 +468,13 @@ int main()
                     msglvl    = 0;  // No print statistical information          //
                     iparm[5]  = 1;  // Solution and rhs are input/output         //
                     iparm[34] = (indexing_zC == SPARSE_INDEX_BASE_ZERO ? 1 : 0); //  columns and rows indexing //
+
+                    for (int i = 0; i < 8; ++i ) {
+                    for (int j = 0; j < 8; ++j ) {
+                        std::cout << iparm[8*i+j] <<  "  "; 
+                    }
+                    std::cout << std::endl;
+                    }
 
                     //                           6
                     pardiso(pt,&maxfct,&mnum,&mtype,&phase,&N,cvalz,rowsz,colsz,&idum,&M0,iparm,
@@ -489,19 +496,21 @@ int main()
                     vmCaux.print("Pardiso Solution from workc");
                     bmQc.print("Q solution from Jacobi");
 
-                    bmQc(0,0).unbindCM(caux);
+/*
+                    vmCaux.bind(ZeroFunctor<complex>());
+                    matrix_product(vmCaux, vmAc, bmQc(0,0));
+                    vmCaux -= vmBc;
+                    vmCaux.print("residual matrix");
+*/
 
-                   for (int i = 0; i < M0*N; ++i){
-                       std::cout << workc[i].real()<<" + " << workc[i].imag() << "I" << "     "
-                                 <<  caux[i].real()<<" + " <<  caux[i].imag() << "I" << std::endl;
-                   }
-                 
+                    bmQc(0,0).unbindCM(workc);
+
                 }
                 std::cout << "===============================================================" << std::endl;
 
                 break;
 
-            case 30:
+            case 30: {
                 //!!!!!!!!!!!!! Perform multiplication A x[0:N-1][i:j]      !!!!!!!!
                 //!!!!!!!!!!!!! and put result into work[0:N-1][i:j]        !!!!!!!!
                 //!!!!!!!!!!!!! where i = fpm[23]-1, j = fpm[23]+fpm[24]-2  !!!!!!!!
@@ -513,8 +522,22 @@ int main()
                     printf("mkl_sparse_d_mm status %d \n", status);
                     return 1;
                 }
+
+                VMatrix<double> vmX, vmW;
+                vmX.init(N,colsX).bindCM(X+imem);
+                vmW.init(N,colsX).bindCM(ZeroFunctor<double>());
+                matrix_product(vmW, vmA, vmX);
+                vmW.print("Case 30: vmw");
+             
+                vmX.init(N,colsX).bindCM(work+imem);
+                vmW.print("Case 30: work+imem");
+
+                }
+
                 break;
-            case 40:
+
+            case 40: {
+        
                 //!!!!!!!!!!!!! Perform multiplication B x[0:N-1][i:j]      !!!!!!!!
                 //!!!!!!!!!!!!! and put result into work[0:N-1][i:j]        !!!!!!!!
                 //!!!!!!!!!!!!! where i = fpm[23]-1, j = fpm[23]+fpm[24]-2  !!!!!!!!
@@ -526,7 +549,16 @@ int main()
                     printf("mkl_sparse_d_mm status %d \n", status);
                     return 1;
                 }
-                break;
+
+                VMatrix<double> vmX, vmW;
+                vmX.init(N,colsX).bindCM(X+imem);
+                vmW.init(N,colsX).bindCM(work+imem);
+                
+                vmX.print("Case 40: vmX");
+                vmW.print("Case 40: vmW");
+
+                } break;
+ 
             default:
                 printf("Wrong ijob %i", ijob); fflush(0);
                 return 1;
