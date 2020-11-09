@@ -8,6 +8,10 @@ OBJECTS =  MatMult.o VMatrix.o
 %.o : %.C %.h
 	$(CXX) -c $(LIBS) $(CXXFLAGS) $< -o $@
 
+
+feast: feast.o
+	$(CXX) $(CXXFLAGS) -o feast $(LIBS) $(OBJECTS) feast.o
+
 timing: $(OBJECTS) timing.o $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o timing $(LIBS) $(OBJECTS) timing.o
 

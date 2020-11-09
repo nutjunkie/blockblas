@@ -74,6 +74,7 @@
 #include "BlockMatrix.h"
 #include "JacobiSolver.h"
 #include "util.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstring>
@@ -109,7 +110,6 @@ int main()
     double   valb[11]; //! vector b
 
     MKL_Complex16 cval[38], cvalb[11], *cvalz, caux[8*11];                   // cval is complex version of A
-    MKL_INT       rows[12], cols[38], rowsb[12], colsb[11], *rowsz, *colsz;  // rows cols used for indexing
 
     //!!!!!!!!!!!!!!! Declaration of Spblas variables !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //!!! A, B - Handles containing a sparse matrix in internal data structure!!!!!!
@@ -117,13 +117,6 @@ int main()
     //!!! indexing - Indicates how input arrays are indexed                   !!!!!!
     //!!! layout - Describes the storage scheme for the dense matrix in mm    !!!!!!
     //!!! opeartion - Specifies operation op() on input matrix in mm          !!!!!!
-    MKL_INT rows_zC, cols_zC, *pdum;
-    sparse_status_t status;
-    sparse_matrix_t A=NULL, B=NULL, zA=NULL, zB=NULL, zC=NULL;
-    struct matrix_descr descrA, descrB;
-    sparse_layout_t layout = SPARSE_LAYOUT_COLUMN_MAJOR;
-    sparse_operation_t operation = SPARSE_OPERATION_NON_TRANSPOSE;
-    sparse_index_base_t indexing = SPARSE_INDEX_BASE_ONE, indexing_zC;
 
     //!!!!!!!!!!!!!!! Declaration of FEAST variables !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //!!!!!!!!!!!!!!! E - eigenvalues, X - eigenvectors, res - residual !!!!!!!!!!!!
@@ -141,16 +134,6 @@ int main()
     double        E[11];
     double        X[121];
     double        res[11];
-
-    //!!!!!!!!!!!!!!! Declaration of PARDISO variables !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    //!!! Internal solver memory pointer pt,                                     !!!
-    //!!! 32-bit: int pt[64]; 64-bit: long int pt[64]                            !!!
-    //!!! or void *pt[64] should be OK on both architectures                     !!!
-    void *pt[64];
-    //!!! Pardiso control parameters
-    MKL_INT iparm[64];
-    MKL_INT phase, maxfct, mnum, mtype, msglvl, error;
-    MKL_INT idum = 0; /* Integer dummy. */
 
     //!!!!!!!!!!!!!!! Declaration of local variables !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //!!! Eig - array for storing exact eigenvalues, R=|E-Eig|, Y=(X')*X-I !!!!!!!!!
@@ -205,82 +188,12 @@ int main()
     val[36] = (double)2.0;
     val[37] = (double)5.0;
 
-    rows[0] = 1;
-    for ( i=1; i<9; i++ )
-    {
-        rows[i]  = rows[i-1]+4;
-    }
-    rows[9]  = rows[8]+3;
-    rows[10] = rows[9]+2;
-    rows[11] = 39;
-
-    for ( i=0; i<9; i++ )
-    {
-        cols[i*4] = i+1;
-        cols[i*4+1] = i+2;
-        cols[i*4+2] = i+3;
-        cols[i*4+3] = i+4;
-    }
-    cols[35] = 10;
-    cols[36] = 11;
-    cols[37] = 11;
-
-    status = mkl_sparse_d_create_csr (&A, indexing, N, N, rows, rows+1, cols, val);
-    if (status != SPARSE_STATUS_SUCCESS)
-    {
-        printf("mkl_sparse_d_create_csr status %d \n", status);
-        return 1;
-    }
-
-    descrA.type = SPARSE_MATRIX_TYPE_SYMMETRIC;
-    descrA.mode = SPARSE_FILL_MODE_UPPER;
-    descrA.diag = SPARSE_DIAG_NON_UNIT;
-    status = mkl_sparse_set_mm_hint (A, operation, descrA, layout, L, 10);
-    if (status != SPARSE_STATUS_SUCCESS)
-    {
-        printf("mkl_sparse_set_mm_hint status %d \n", status);
-        return 1;
-    }
-
-    status = mkl_sparse_optimize (A);
-    if (status != SPARSE_STATUS_SUCCESS)
-    {
-        printf("mkl_sparse_optimize status %d \n", status);
-        return 1;
-    }
-
     //!!!!!!!!!!!!!!!!!!    Initialize unit matrix B   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     for ( i=0; i<N; i++ )
     {
         valb[i]  = (double)1.0;
-        colsb[i] = i+1;
-        rowsb[i] = i+1;
-    }
-    rowsb[N] = N+1;
-
-    status = mkl_sparse_d_create_csr (&B, indexing, N, N, rowsb, rowsb+1, colsb, valb);
-    if (status != SPARSE_STATUS_SUCCESS)
-    {
-        printf("mkl_sparse_d_create_csr status %d \n", status);
-        return 1;
     }
 
-    descrB.type = SPARSE_MATRIX_TYPE_GENERAL;
-    descrB.mode = SPARSE_FILL_MODE_UPPER;
-    descrB.diag = SPARSE_DIAG_NON_UNIT;
-    status = mkl_sparse_set_mm_hint (B, operation, descrB, layout, L, 10);
-    if (status != SPARSE_STATUS_SUCCESS)
-    {
-        printf("mkl_sparse_set_mm_hint status %d \n", status);
-        return 1;
-    }
-
-    status = mkl_sparse_optimize (B);
-    if (status != SPARSE_STATUS_SUCCESS)
-    {
-        printf("mkl_sparse_optimize status %d \n", status);
-        return 1;
-    }
 
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     //!!!!!  Initialize upper part of complex symmetric matrix -A !!!!!!!!!!!!!!!!!!
@@ -288,13 +201,6 @@ int main()
     for ( i=0; i<38; i++ )
     {
         cval[i] = complex(-val[i], 0.0);
-    }
-
-    status = mkl_sparse_z_create_csr (&zA, indexing, N, N, rows, rows+1, cols, cval);
-    if (status != SPARSE_STATUS_SUCCESS)
-    {
-        printf("mkl_sparse_z_create_csr status %d \n", status);
-        return 1;
     }
 
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -316,22 +222,13 @@ int main()
     loop = 0;
     info = 0;
     //!!!!!!!!!!!!     Initialize PARDISO                   !!!!!!!!!!!!!!!!
-    mtype = 6; /* Complex symmetric matrix */
-    pardisoinit(pt,&mtype,iparm);
+
     //         Copies all real array valb to complex array cvalb
     for ( i=0; i<N; i++ )
     {
         cvalb[i] = complex(valb[i], 0.0);
     }
 
-    status = mkl_sparse_z_create_csr (&zB, indexing, N, N, rowsb, rowsb+1, colsb, cvalb);
-    if (status != SPARSE_STATUS_SUCCESS)
-    {
-        printf("mkl_sparse_z_create_csr status %d \n", status);
-        return 1;
-    }
-
-    //
     //         Task 1. Initialize FEAST to define the default values for the input
     //         FEAST parameters.
     //
@@ -344,65 +241,10 @@ int main()
     //         Task 2. The  code solves  the generalized eigenvalue problem  Ax=eBx using
     //         DFEAST_SRCI.
     //
+    //
     while ( ijob != 0 )
     {
-        dfeast_srci(&ijob,&N,&Ze,work,workc,Aq,Sq,fpm,&epsout,&loop,&Emin,&Emax,&M0,E,X,&M,res,&info);
-        if ( info != 0 )
-        {
-            printf("DFEAST_SRCI info %i \n", info);
-            return 1;
-        }
-        switch ( ijob )
-        {
-            case -2:
-                //!!!!!!!!!!!!!!  New loop                 !!!!!!!!!!!!!!!!!!!!!!!!!
-                break;
-            case 0:
-                //!!!!!!!!!!!!!!  End                      !!!!!!!!!!!!!!!!!!!!!!!!!
-                break;
-            case 10:
-                //!!!!!!!!!!!!!!  We can do nothing here   !!!!!!!!!!!!!!!!!!!!!!!!!
-                break;
-            case 11:
-                {
-                   std::cout<< std::setprecision(7);
-
-/*
-                   for (int i = 0; i < M0*N; ++i){
-                       std::cout << workc[i].real()<<" + " << workc[i].imag() << "I" << std::endl;
-                   }
-*/
-
-                   std::cout << "Complex root: "<< Ze << std::endl;
-//                 std::cout << "Num RHS:      "<< fpm[23-1] << std::endl;
-                   VMatrix<complex> vmAc;
-                   vmAc.fromDouble(vmA);
-                   -vmAc;
-                   vmAc += Ze;   // overloaded operator only adjusts the diagonal
-                   vmAc.toDense();
-//                 vmAc.print("A Matrix");
-
-                   VMatrix<complex> vmBc;
-                   vmBc.init(N,M0,Dense).bindCM(workc);
-//                 vmBc.print("complex RHS");
-
-                   DiagonalFunctor<complex> diag(complex(1.0,0.0));
-                   VMatrix<complex> vmQc;
-                   vmQc.init(N,M0,Dense).bind(diag);
-
-                   BlockMatrix<complex> bmAc(vmAc);
-                   BlockMatrix<complex> bmBc(vmBc);
-                   BlockMatrix<complex> bmQc(vmQc);
-
-                   jacobi_solver(bmQc, bmAc, bmBc);
-
-                   //
-                   //!!!!!!!!!!!!!!  Find matrix C = ZeB-A        !!!!!!!!!!!!!!!!!!!!!!!!!
-                   //case (11)
-                   // !!Solve the linear system with fpm(23) rhs; Az ∗ Qz=work2(1:N,1:fpm(23)) 
-                   // !!Result (in place) in workc <= Qz(1:N,1:fpm(23))  workc is complex
-                   //
-     //  dfeast_srci(&ijob,&N,&Ze,work,workc,Aq,Sq,fpm,&epsout,&loop,&Emin,&Emax,&M0,E,X,&M,res,&info);
+//  dfeast_srci(&ijob,&N,&Ze,work,workc,Aq,Sq,fpm,&epsout,&loop,&Emin,&Emax,&M0,E,X,&M,res,&info);
      //
      //  void dfeast_srci (
      //   - MKL_INT* ijob,        job indicator
@@ -424,88 +266,57 @@ int main()
      //     double* res,          relative residual vectors
      //     MKL_INT* info         output
      //   );
-     //                                       // zC = Ze * zB + zA
-                   status = mkl_sparse_z_add (operation, zB, Ze, zA, &zC);
-                   if (status != SPARSE_STATUS_SUCCESS) {
-                      printf("mkl_sparse_z_add status %d \n", status);
-                      return 1;
-                   }
 
-                    status = mkl_sparse_z_export_csr (zC, &indexing_zC, &rows_zC, &cols_zC, &rowsz, 
-                        &pdum, &colsz, &cvalz);
-
-/*
-                    MKL_Complex16 dense_Az[N*N];
-                    MKL_INT job[6], info;
-
-                    printf("indexing on C: %d\n", indexing_zC);
-
-                    job[0] =  1;  // A restored from CSR
-                    job[1] =  1;  // 1-based indexing
-                    job[2] =  1;  // 1-based indexing
-                    job[3] =  2;  // Entire matrix restored
-                    job[4] = 10;  // Max non-zero elements (if job[0]= 0)
-                    job[5] =  0;  // crap for -> CSR
-
-
-                   mkl_zdnscsr (job, &N, &N, dense_Az, &N, cvalz, colsz, rowsz, &info);
-                   //mkl_zdnscsr (job, &N, &N, dense_Az, &N, cval, cols, rows, &info);
-                    
-
-                   VMatrix<complex> vmDenseA;
-                   vmDenseA.init(N,N,Dense).bind(dense_Az);
-vmDenseA.print("Dense Matrix Ze*B-A from CSR");
-vmAc.print("My A matrix");
-*/
-
-                    if (status != SPARSE_STATUS_SUCCESS) {
-                       printf("mkl_sparse_z_exposr_csr status %d \n", status);
-                       return 1;
-                    }
-                    //!!!!!!!!!!!!!!! Solve (ZeB-A) caux = workc[0:N-1][0:M0-1] !!!!!!!!
-                    //!!!!!!!!!!!!!!! and put result into workc                 !!!!!!!!
-                    phase     = 13; // Analysis, numerical factorization, solve  //
-                    maxfct    = 1;  // Maximal number of factors in memory       //
-                    mnum      = 1;  // The number of matrix to solve             //
-                    msglvl    = 0;  // No print statistical information          //
-                    iparm[5]  = 1;  // Solution and rhs are input/output         //
-                    iparm[34] = (indexing_zC == SPARSE_INDEX_BASE_ZERO ? 1 : 0); //  columns and rows indexing //
-
-                    //                           6
-                    pardiso(pt,&maxfct,&mnum,&mtype,&phase,&N,cvalz,rowsz,colsz,&idum,&M0,iparm,
-                       &msglvl,workc,caux,&error);
-
-                    if ( error != 0 ) {
-                       printf("PARDISO error %d \n", error);
-                       return 1;
-                    }
-                    status = mkl_sparse_destroy(zC);
-
-                    if (status != SPARSE_STATUS_SUCCESS) {
-                       printf("mkl_sparse_destroy status %d \n", status);
-                       return 1;
-                    }
-
-                    VMatrix<complex> vmCaux;
-                    vmCaux.init(N,M0,Dense).bindCM(workc);
-
-                    //vmCaux.print("Pardiso Solution from workc");
-                    //bmQc.print("Q solution from Jacobi");
-                    matrix_residue(vmCaux,bmQc(0,0));
-
-/*
-                    vmCaux.bind(ZeroFunctor<complex>());
-                    matrix_product(vmCaux, vmAc, bmQc(0,0));
-                    vmCaux -= vmBc;
-                    vmCaux.print("residual matrix");
-*/
-
-                    bmQc(0,0).unbindCM(workc);
-
-                }
-                std::cout << "===============================================================" << std::endl;
-
+        dfeast_srci(&ijob,&N,&Ze,work,workc,Aq,Sq,fpm,&epsout,&loop,&Emin,&Emax,&M0,E,X,&M,res,&info);
+        if ( info != 0 )
+        {
+            printf("DFEAST_SRCI info %i \n", info);
+            return 1;
+        }
+        switch ( ijob )
+        {
+            case -2:
+                // New loop
                 break;
+            case 0:
+                // End
+                break;
+            case 10:
+                // Preconditioner, we can do nothing here
+                break;
+            case 11: {
+                std::cout<< std::setprecision(7);
+
+//             std::cout << "Complex root: "<< Ze << std::endl;
+//             std::cout << "Num RHS:      "<< fpm[23-1] << std::endl;
+//                 
+//             zC = Ze * zB + zA
+               VMatrix<complex> vmAc;
+               vmAc.fromDouble(vmA);
+               -vmAc;
+               vmAc += Ze;   // overloaded operator only adjusts the diagonal
+               vmAc.toDense();
+//             vmAc.print("A Matrix");
+
+               VMatrix<complex> vmBc;
+               vmBc.init(N,M0,Dense).bindCM(workc);
+//             vmBc.print("complex RHS");
+
+               DiagonalFunctor<complex> diag(complex(1.0,0.0));
+               VMatrix<complex> vmQc;
+               vmQc.init(N,M0,Dense).bind(diag);
+
+               //!!!!!!!!!!!!!!! Solve (ZeB-A) caux = workc[0:N-1][0:M0-1] !!!!!!!!
+               //!!!!!!!!!!!!!!! and put result into workc                 !!!!!!!!
+
+               BlockMatrix<complex> bmAc(vmAc);
+               BlockMatrix<complex> bmBc(vmBc);
+               BlockMatrix<complex> bmQc(vmQc);
+
+               jacobi_solver(bmQc, bmAc, bmBc);
+               bmQc(0,0).unbindCM(workc);
+
+            } break;
 
             case 30: {
                 //!!!!!!!!!!!!! Perform multiplication A x[0:N-1][i:j]      !!!!!!!!
@@ -513,12 +324,6 @@ vmAc.print("My A matrix");
                 //!!!!!!!!!!!!! where i = fpm[23]-1, j = fpm[23]+fpm[24]-2  !!!!!!!!
                 colsX = fpm[24];
                 imem = N*(fpm[23]-1);
-                status = mkl_sparse_d_mm (operation, one, A, descrA, layout, X+imem, colsX, N, zero, work+imem, N);
-                if (status != SPARSE_STATUS_SUCCESS)
-                {
-                    printf("mkl_sparse_d_mm status %d \n", status);
-                    return 1;
-                }
 
                 VMatrix<double> vmX, vmW;
                 vmX.init(N,colsX).bindCM(X+imem);
@@ -547,17 +352,12 @@ vmAc.print("My A matrix");
                 //!!!!!!!!!!!!! where i = fpm[23]-1, j = fpm[23]+fpm[24]-2  !!!!!!!!
                 colsX = fpm[24];
                 imem = N*(fpm[23]-1);
-                status = mkl_sparse_d_mm (operation, one, B, descrB, layout, X+imem, colsX, N, zero, work+imem, N);
-                if (status != SPARSE_STATUS_SUCCESS)
-                {
-                    printf("mkl_sparse_d_mm status %d \n", status);
-                    return 1;
-                }
 
                 VMatrix<double> vmX, vmW;
                 vmX.init(N,colsX).bindCM(X+imem);
                 vmW.init(N,colsX).bindCM(work+imem);
 
+                // B is the identity, so we just do a copy
                 memcpy(work+imem, X+imem, colsX*N*sizeof(double));
                 
                 //vmX.print("Case 40: vmX");
@@ -571,13 +371,6 @@ vmAc.print("My A matrix");
         }
     }
     //!!!!!!!!!!!!!!! Release memory                              !!!!!!!!!!!!!!!!!!!!
-    phase = -1;
-    pardiso(pt,&maxfct,&mnum,&mtype,&phase,&N,val,rows,cols,&idum,&M0,iparm,&msglvl,workc,caux,&error);
-    if ( error != 0 )
-    {
-        printf("PARDISO RELEASE MEMORY ERROR %d \n", error);
-        return 1;
-    }
     //
     //         Task 3. Compute the residual R(i) = | E(i) - Eig(i) |  where Eig(i)
     //         are the expected eigenvalues  and E(i) are eigenvalues computed
@@ -634,9 +427,5 @@ vmAc.print("My A matrix");
     }
     printf( "Max of (transposed of X)*X-I %.15e \n", smax);
 
-    mkl_sparse_destroy(A);
-    mkl_sparse_destroy(B);
-    mkl_sparse_destroy(zA);
-    mkl_sparse_destroy(zB);
     return 0;
 }
