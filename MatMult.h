@@ -9,31 +9,18 @@
 //    C += A x B 
 
 
-template <class T>
-void wrap_gemm(
-   const CBLAS_ORDER Order, const CBLAS_TRANSPOSE TransA, const CBLAS_TRANSPOSE TransB, 
-   const int M, const int N, const int K, const double alpha, const T* A, const int lda, 
-   const T* B, const int ldb, const double beta, T* C, const int ldc);
+template<class T, LayoutT L>
+void gemm(VMatrix<T,L> const& A, VMatrix<T,L> const& B, VMatrix<T,L>& C); 
+
+template<class T, LayoutT L>
+void gbmv(VMatrix<T,L> const& A, VMatrix<T,L> const& B, VMatrix<T,L>& C, int const kl,
+   int const ku, int const band, int const vec); 
    
-
-template <class T>
-void wrap_gbmv(
-   const CBLAS_ORDER Order, const CBLAS_TRANSPOSE TransA, const int M, const int N, 
-   const int KL, const int KU, const double alpha, const T* A, const int lda, const T* X, 
-   const int incX, const double beta, T* Y, const int incY);
-
-
-template <class T>
-void wrap_gemv(
-   const CBLAS_ORDER Order, const CBLAS_TRANSPOSE TransA, const int M, const int N, 
-   const double alpha, const T* A, const int lda, const T* X, const int incX, const double beta, 
-   T* Y, const int incY);
-
 
 // Accumulates the A.B product into C:
 //    C += A.B 
-template <class T>
-void matrix_product(VMatrix<T>& C, VMatrix<T> const& A, VMatrix<T> const& B)
+template <class T, LayoutT L>
+void matrix_product(VMatrix<T,L>& C, VMatrix<T,L> const& A, VMatrix<T,L> const& B)
 {
    if (A.nCols() != B.nRows() ||
        B.nCols() != C.nCols() ||
@@ -113,18 +100,8 @@ void matrix_product(VMatrix<T>& C, VMatrix<T> const& A, VMatrix<T> const& B)
       int ku(stripes[1]);
       int band(kl+ku+1);
 
-      if (A.layout() == RowMajor) {
-         for (unsigned vec = 0; vec < nvec; ++vec) {
-            wrap_gbmv(CblasRowMajor, CblasNoTrans,
-               A.nRows(), A.nCols(), kl, ku, 1.0, A.data(), band,
-               B.data()+vec, B.nCols(), 1.0, C.data()+vec, C.nCols());
-         }
-      }else{
-         for (unsigned vec = 0; vec < nvec; ++vec) {
-             wrap_gbmv(CblasColMajor, CblasNoTrans,
-               A.nRows(), A.nCols(), kl, ku, 1.0, A.data(), band,
-               B.data()+vec*B.nRows(), 1, 1.0, C.data()+vec*B.nRows(), 1);
-         }
+      for (unsigned vec = 0; vec < nvec; ++vec) {
+          gbmv(A, B, C, kl, ku, band, vec);
       }
 
   //  ---------- Striped Matrices ----------
@@ -221,23 +198,8 @@ void matrix_product(VMatrix<T>& C, VMatrix<T> const& A, VMatrix<T> const& B)
    }else if (storageA == Dense && 
              storageB == Dense && 
              storageC == Dense) {
-      if (C.nCols() == 1) {
-         // handle the case when B and C are vectors.
-         wrap_gemv(CblasRowMajor, CblasNoTrans,
-            A.nRows(), A.nCols(), 1.0, A.data(), A.nCols(),
-            B.data(), 1, 1.0, C.data(), 1); 
-      } else {
-         if (A.layout() == RowMajor) {
-            wrap_gemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-               A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
-                B.data(), B.nCols(), 1.0, C.data(), C.nCols());
-         }else {
-            wrap_gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,
-               A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(),
-                B.data(), B.nRows(), 1.0, C.data(), C.nRows());
-         } 
-      }
- 
+      gemm(A,B,C);
+
    }else {
       std::cerr << "VMatrix multiplication not defined for " 
                 << toString(storageC) << " <- " 
@@ -247,8 +209,8 @@ void matrix_product(VMatrix<T>& C, VMatrix<T> const& A, VMatrix<T> const& B)
 }
 
 
-template <class T>
-void matrix_product(BlockMatrix<T>& C, BlockMatrix<T> const& A, BlockMatrix<T> const& B)
+template <class T, LayoutT L>
+void matrix_product(BlockMatrix<T,L>& C, BlockMatrix<T,L> const& A, BlockMatrix<T,L> const& B)
 {
    // Should check matrix dimensions
    for (unsigned bi = 0; bi < A.nRowBlocks(); ++bi) {
@@ -263,8 +225,9 @@ void matrix_product(BlockMatrix<T>& C, BlockMatrix<T> const& A, BlockMatrix<T> c
 }
 
 
-template <class T>
-void matrix_product_sans_diagonal(BlockMatrix<T>& C, BlockMatrix<T> const& A, BlockMatrix<T> const& B)
+template <class T, LayoutT L>
+void matrix_product_sans_diagonal(BlockMatrix<T,L>& C, BlockMatrix<T,L> const& A, 
+   BlockMatrix<T,L> const& B)
 {
    // Should check matrix dimensions
    for (unsigned bi = 0; bi < A.nRowBlocks(); ++bi) {
@@ -277,6 +240,5 @@ void matrix_product_sans_diagonal(BlockMatrix<T>& C, BlockMatrix<T> const& A, Bl
        }
    }
 }
-
 
 #endif

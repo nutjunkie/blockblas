@@ -1,126 +1,86 @@
 #include "MatMult.h"
 
-template <>
-void wrap_gemm(
-   const CBLAS_ORDER Order, 
-   const CBLAS_TRANSPOSE TransA, 
-   const CBLAS_TRANSPOSE TransB, 
-   const int M, 
-   const int N,
-   const int K, 
-   const double alpha, 
-   const double* A, 
-   const int lda, 
-   const double* B, 
-   const int ldb, 
-   const double beta, 
-   double* C, 
-   const int ldc)
-{
-   cblas_dgemm(Order, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc);
-}
 
-template <>
-void wrap_gemm(
-   const CBLAS_ORDER Order, 
-   const CBLAS_TRANSPOSE TransA, 
-   const CBLAS_TRANSPOSE TransB, 
-   const int M, 
-   const int N,
-   const int K, 
-   const double alpha, 
-   const complex* A, 
-   const int lda, 
-   const complex* B, 
-   const int ldb, 
-   const double beta, 
-   complex* C, 
-   const int ldc)
+template<>
+void gemm(VMatrix<double,RowMajor> const& A,  VMatrix<double,RowMajor> const& B,  
+   VMatrix<double,RowMajor>& C)
 {
-   complex al(alpha,0.0);
-   complex be(beta,0.0);
-   cblas_zgemm(Order, TransA, TransB, M, N, K, &al, A, lda, B, ldb, &be, C, ldc);
+   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+      A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(), 
+      B.data(), B.nCols(), 1.0, C.data(), C.nCols());
 }
 
 
-template <>
-void wrap_gbmv(
-   const CBLAS_ORDER Order, 
-   const CBLAS_TRANSPOSE TransA, 
-   const int M, 
-   const int N, 
-   const int KL, 
-   const int KU, 
-   const double alpha, 
-   const double* A, 
-   const int lda, 
-   const double* X, 
-   const int incX, 
-   const double beta, 
-   double* Y, 
-   const int incY)
+template<>
+void gemm(VMatrix<double,ColumnMajor> const& A,  VMatrix<double,ColumnMajor> const& B,  
+   VMatrix<double,ColumnMajor>& C)
 {
-   cblas_dgbmv(Order, TransA, M, N, KL, KU, alpha, A, lda, X, incX, beta, Y, incY);
-}
-
-template <>
-void wrap_gbmv(
-   const CBLAS_ORDER Order, 
-   const CBLAS_TRANSPOSE TransA, 
-   const int M, 
-   const int N, 
-   const int KL, 
-   const int KU, 
-   const double alpha, 
-   const complex* A, 
-   const int lda, 
-   const complex* X, 
-   const int incX, 
-   const double beta, 
-   complex* Y, 
-   const int incY)
-{
-   complex al(alpha,0.0);
-   complex be(beta,0.0);
-   cblas_zgbmv(Order, TransA, M, N, KL, KU, &al, A, lda, X, incX, &be, Y, incY);
+   cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
+      A.nRows(), B.nCols(), A.nCols(), 1.0, A.data(), A.nCols(), 
+      B.data(), B.nRows(), 1.0, C.data(), C.nRows());
 }
 
 
-template <>
-void wrap_gemv(
-   const CBLAS_ORDER Order, 
-   const CBLAS_TRANSPOSE TransA, 
-   const int M, 
-   const int N, 
-   const double alpha, 
-   const double* A, 
-   const int lda, 
-   const double* X, 
-   const int incX, 
-   const double beta, 
-   double* Y, 
-   const int incY)
+template<>
+void gemm(VMatrix<complex,RowMajor> const& A,  VMatrix<complex,RowMajor> const& B,  
+   VMatrix<complex,RowMajor>& C)
 {
-   cblas_dgemv(Order, TransA, M, N, alpha, A, lda, X, incX, beta, Y, incY);
+   complex one(1.0,0.0);
+   cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+      A.nRows(), B.nCols(), A.nCols(), &one, A.data(), A.nCols(), 
+      B.data(), B.nCols(), &one, C.data(), C.nCols());
 }
 
 
-template <>
-void wrap_gemv(
-   const CBLAS_ORDER Order, 
-   const CBLAS_TRANSPOSE TransA, 
-   const int M, 
-   const int N, 
-   const double alpha, 
-   const complex* A, 
-   const int lda, 
-   const complex* X, 
-   const int incX, 
-   const double beta, 
-   complex* Y, 
-   const int incY)
+template<>
+void gemm(VMatrix<complex,ColumnMajor> const& A,  VMatrix<complex,ColumnMajor> const& B,  
+   VMatrix<complex,ColumnMajor>& C)
 {
-   complex al(alpha,0.0);
-   complex be(beta,0.0);
-   cblas_zgemv(Order, TransA, M, N, &al, A, lda, X, incX, &be, Y, incY);
+   complex one(1.0,0.0);
+   cblas_zgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, 
+      A.nRows(), B.nCols(), A.nCols(), &one, A.data(), A.nCols(), 
+      B.data(), B.nRows(), &one, C.data(), C.nRows());
+}
+
+
+
+template<>
+void gbmv(VMatrix<double,RowMajor> const& A,  VMatrix<double,RowMajor> const& B,  
+   VMatrix<double,RowMajor>& C, int const kl, int const ku, int const band, int const vec)
+{
+   cblas_dgbmv(CblasRowMajor, CblasNoTrans,
+      A.nRows(), A.nCols(), kl, ku, 1.0, A.data(), band,
+      B.data()+vec, B.nCols(), 1.0, C.data()+vec, C.nCols());
+}
+
+
+template<>
+void gbmv(VMatrix<double, ColumnMajor> const& A,  VMatrix<double, ColumnMajor> const& B,  
+   VMatrix<double, ColumnMajor>& C, int const kl, int const ku, int const band, int const vec)
+{
+   cblas_dgbmv(CblasColMajor, CblasNoTrans,
+      A.nRows(), A.nCols(), kl, ku, 1.0, A.data(), band,
+      B.data()+vec*B.nRows(), 1, 1.0, C.data()+vec*B.nRows(), 1);
+}
+
+
+template<>
+void gbmv(VMatrix<complex, RowMajor> const& A,  VMatrix<complex, RowMajor> const& B,  
+   VMatrix<complex,RowMajor>& C, int const kl, int const ku, int const band, int const vec)
+{
+   complex one(1.0,0.0);
+   cblas_zgbmv(CblasRowMajor, CblasNoTrans,
+      A.nRows(), A.nCols(), kl, ku, &one, A.data(), band,
+      B.data()+vec, B.nCols(), &one, C.data()+vec, C.nCols());
+}
+
+
+template<>
+void gbmv(VMatrix<complex, ColumnMajor> const& A,  VMatrix<complex, ColumnMajor> const& B,  
+   VMatrix<complex,ColumnMajor>& C, int const kl, int const ku, int const band, int const vec)
+{
+   complex one(1.0,0.0);
+   cblas_zgbmv(CblasColMajor, CblasNoTrans,
+      A.nRows(), A.nCols(), kl, ku, &one, A.data(), band,
+      B.data()+vec*B.nRows(), 1, &one, C.data()+vec*B.nRows(), 1);
 }

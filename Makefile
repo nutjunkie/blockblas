@@ -9,13 +9,13 @@ OBJECTS =  MatMult.o VMatrix.o
 	$(CXX) -c $(LIBS) $(CXXFLAGS) $< -o $@
 
 
-feast: feast.o
+feast: feast.o $(OBJECTS) $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o feast $(LIBS) $(OBJECTS) feast.o
 
-timing: $(OBJECTS) timing.o $(HEADERS)
+timing: timing.o $(OBJECTS) $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o timing $(LIBS) $(OBJECTS) timing.o
 
-test: $(OBJECTS) test.o $(HEADERS)
+test: test.o $(OBJECTS) $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o test $(LIBS) $(OBJECTS) test.o
 
 blas: blas.o $(HEADERS)
@@ -23,3 +23,5 @@ blas: blas.o $(HEADERS)
 
 clean:
 	rm -f $(OBJECTS) test.o test timing.o timing blas.o blas
+
+VMatrix.o: VMatrix_templateT.cpp VMatrix_templateL.cpp

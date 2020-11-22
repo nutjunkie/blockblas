@@ -86,8 +86,20 @@
 
 #define max(a, b) (a) < (b) ? (b): (a)
 
+int diagonalize();
+
 
 int main()
+{
+    int rv(0);
+
+    rv= diagonalize();
+    return rv;
+}
+
+
+
+int diagonalize()
 {
     std::vector<int> stripes{-3,-2,-1,0,1,2,3};
     VMatrix<double> vmA, vmb;
@@ -357,7 +369,7 @@ int main()
                 vmX.init(N,colsX).bindCM(X+imem);
                 vmW.init(N,colsX).bindCM(work+imem);
 
-                // B is the identity, so we just do a copy
+                // B is the identity, so we just do a copy work <- X
                 memcpy(work+imem, X+imem, colsX*N*sizeof(double));
                 
                 //vmX.print("Case 40: vmX");

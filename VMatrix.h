@@ -23,30 +23,30 @@
 
 // Matrix class representing a tile of the BlockMatrix. 
 
-template <class T>
+template <class T, LayoutT L>
 class VMatrix
 {
     public:
        // On construction, the VMatrix does not have any data associated with it.
        // Allocation is only done when calling bind().
        VMatrix(size_t const nRows = 0, size_t const nCols = 0, 
-          StorageT const storage = Dense) : m_data(0), m_layout(RowMajor)
+          StorageT const storage = Dense) : m_data(0)
        {
           init(nRows, nCols, storage);
        }
 
-       VMatrix(VMatrix<T> const& that) : m_data(0), m_layout(RowMajor)
+       VMatrix(VMatrix<T,L> const& that) : m_data(0)
        {
           copy(that);
        }
 
-       VMatrix<T>& operator=(VMatrix<T> const& that)
+       VMatrix<T,L>& operator=(VMatrix<T,L> const& that)
        {
           if (this != &that) copy(that);
           return *this;
        }
 
-       VMatrix<T>& fromDouble(VMatrix<double> const& that);
+       VMatrix<T,L>& fromDouble(VMatrix<double,L> const& that);
 
        void info(const char* msg = 0) const
        {
@@ -56,10 +56,12 @@ class VMatrix
     
           std::cout << "Storage:    " << toString(m_storage) << std::endl;
           std::cout << "Num data:   " << m_nData << std::endl;
+          std::cout << "Type size:  " << sizeof(T) << std::endl;
           std::cout << "Dimensions: " << m_nRows << "x" << m_nCols << std::endl;
        }
 
-       VMatrix<T>& init(size_t const nRows, size_t const nCols, StorageT const storage = Dense)
+       VMatrix<T,L>& init(size_t const nRows, size_t const nCols, 
+          StorageT const storage = Dense)
        {
           release();
           m_nRows   = nRows;
@@ -76,7 +78,7 @@ class VMatrix
        }
 
 
-       VMatrix<T>& init(size_t const nRows, size_t const nCols, 
+       VMatrix<T,L>& init(size_t const nRows, size_t const nCols, 
           std::vector<int> const& stripes)
        {
           release();
@@ -88,7 +90,7 @@ class VMatrix
           return *this;
        }
 
-       VMatrix<T>& init(size_t const nRows, size_t const nCols, size_t const lbands, 
+       VMatrix<T,L>& init(size_t const nRows, size_t const nCols, size_t const lbands, 
           size_t const ubands)
        {
           release();
@@ -152,51 +154,19 @@ class VMatrix
 
        void bind(T const* data)
        {
-          bind();
-          for (unsigned i = 0; i < m_nData; ++i) {
-              m_data[i] = data[i];
-          }
+           bind();
+           memcpy(m_data, data, m_nData*sizeof(T));
        }
 
        void unbind(T* data)
        {
-          for (unsigned i = 0; i < m_nData; ++i) {
-              data[i] = m_data[i];
-          }
+           memcpy(data, m_data, m_nData*sizeof(T));
        }
 
-       void bindCM(T const* data)
-       {
-          bind();
-          unsigned k = 0;
-          for (unsigned j = 0; j < m_nCols; ++j) {
-              for (unsigned i = 0; i < m_nRows; ++i) {
-                  m_data[i*m_nCols+j] = data[k];
-                  ++k;
-              }
-          }
-       }
-
-       void unbindCM(T* data) const
-       {
-          unsigned k = 0;
-          for (unsigned j = 0; j < m_nCols; ++j) {
-              for (unsigned i = 0; i < m_nRows; ++i) {
-                  data[k] = m_data[i*m_nCols+j];
-                  ++k;
-              }
-          }
-       }
-
-
-
-
-       
        // Allocates space for the VMatrix and computes its elements using the functor.
        void bind(Functor<T> const& functor)
        {
           bind();
-          m_layout = RowMajor;
 
           switch (m_storage) {
              case Zero:
@@ -217,33 +187,7 @@ class VMatrix
           }
        }
 
-       // Column-major form
-       void bindCM(Functor<T> const& functor)
-       {
-          bind();
-          m_layout = ColumnMajor;
-
-          switch (m_storage) {
-             case Zero:
-                fillZero(functor);
-                break;
-             case Diagonal:
-                fillDiagonal(functor);
-                break;
-             case Banded:
-                fillBandedCM(functor);
-                break;
-             case Striped:
-                std::cerr << "Column-major storage not supported for striped matrices" << std::endl;
-                break;
-             case Dense:
-                fillDenseCM(functor);
-                break;
-          }
-       }
-
        void invert();
-
        bool isBound() const { return m_data != 0; }
 
        size_t nRows() const { return m_nRows; }
@@ -255,147 +199,13 @@ class VMatrix
        // values are above the diagonal.
        std::vector<int> const& stripes() const { return m_stripes; }
 
-       void toDense()
-       {
-          size_t n(m_nRows*m_nCols);
-          T* data = new T[n];
-          unsigned k(0);
-
-          if (m_layout == RowMajor) {
-             for (unsigned i = 0; i < m_nRows; ++i) {
-                 for (unsigned j = 0; j < m_nCols; ++j, ++k) {
-                     data[k] = (*this)(i,j);
-                 }
-             }  
-          }else {
-             for (unsigned j = 0; j < m_nCols; ++j) {
-                 for (unsigned i = 0; i < m_nRows; ++i, ++k) {
-                     data[k] = (*this)(i,j);
-                 }
-             }  
-          }
-
-          release();
-          m_nData = n;
-          m_data = data;
-          m_storage = Dense;
-          m_stripes.clear();
-       }
-
+       void toDense();
+       
        // These are convenience functions and are very inefficient
-       T operator()(unsigned const i, unsigned const j) const
-       {
-          T value = T();
- 
-          switch (m_storage) {
-             case Zero:
-                break;
- 
-             case Diagonal:
-                if (i==j) {
-                   value = m_data[i];
-                }
-                break;
- 
-             case Banded: {
-                int kl(m_stripes[0]);
-                int ku(m_stripes[1]);
-//             std::cout << "Access element: (" << i << "," << j << ") -> ";
-                if (m_layout == RowMajor) {
-                   if (std::max(0,(int)i-kl) <= j && j <= std::min((int)m_nCols,(int)i+ku)) {
-                      int k(j-i+kl+i*(kl+ku+1));
-                      value = m_data[k];
-//                    std::cout <<  k << " = ";
-                   }
-                }else {
-                   if (std::max(0,(int)j-ku) <= i && i <= std::min((int)m_nRows,(int)j+kl)) {
-                      int k(i-j+ku+j*(kl+ku+1));
-                      value = m_data[k];
-//                    std::cout <<  k << " = ";
-                   }
-                }
-//              std::cout <<  value << std::endl;
-             } break;
- 
-             case Striped: {
-                if (m_layout == RowMajor) {
-                   int stripe(j-i);
-                   std::vector<int>::const_iterator it;
-                   it = std::find(m_stripes.begin(), m_stripes.end(), stripe);
+       T operator()(unsigned const i, unsigned const j) const;
+       void set(unsigned const i, unsigned const j, T const value);
 
-                   if (it != m_stripes.end()) {
-                      // We have hit a non-zero element
-                      unsigned m(std::min(m_nRows,m_nCols));
-                      unsigned index = std::distance(m_stripes.begin(), it);
-                      int ij = (stripe < 0) ? j : i;
-                      value = m_data[ij + index*m];
-                   }
-                }else {
-                   std::cerr << "Column-major layout for striped matrices not supported" << std::endl;
-                }
- 
-             } break;
- 
-             case Dense:
-                if (m_layout == RowMajor) {
-                   value = m_data[i*m_nCols + j];
-                }else {
-                   value = m_data[i + j*m_nRows];
-                }
-                break;
-          }
- 
-          return value;
-       }
- 
-        //T& operator() (unsigned const i, unsigned const j);
-       void set(unsigned const i, unsigned const j, T const value)
-       {
-          switch (m_storage) {
-             case Zero:
-                break;
- 
-             case Diagonal:
-                if (i==j) {
-                   m_data[i] = value;
-                }
-                break;
- 
-            case Banded:
-               std::cerr << "VMatrix::set NYI for Banded matrices" << std::endl;
-               break;
- 
-             case Striped: {
-                if (m_layout == RowMajor) {
-                   int stripe(j-i);
-                   std::vector<int>::iterator it;
-                   it = std::find(m_stripes.begin(), m_stripes.end(), stripe);
- 
-                   if (it != m_stripes.end()) {
-                      // We have hit a non-zero element
-                      unsigned m(std::min(m_nRows,m_nCols));
-                      unsigned index = std::distance(m_stripes.begin(), it);
-                      int ij = (stripe < 0) ? j : i;
-                      m_data[ij + index*m] = value;
-                   }
-                }else {
-                   std::cerr << "VMatrix::set NYI for Striped ColumnMajor matrices" << std::endl;
-                }
- 
-             } break;
- 
-             case Dense:
-                if (m_layout == RowMajor) {
-                   m_data[i*m_nCols + j] = value;
-                }else {
-                   m_data[i + j*m_nRows] = value;
-                }
-                break;
-          }
-       }
- 
-       //This needs to account for the different storage types
-       VMatrix<T>& operator+=(VMatrix<T> const& that)
+       VMatrix<T,L>& operator+=(VMatrix<T,L> const& that)
        {
 #ifdef DEBUG
           assert(that.m_nCols   == m_nCols);
@@ -409,9 +219,7 @@ class VMatrix
           return *this;
        }
 
-
-       //This needs to account for the different storage types
-       VMatrix<T>& operator-=(VMatrix<T> const& that)
+       VMatrix<T,L>& operator-=(VMatrix<T,L> const& that)
        {
 #ifdef DEBUG
           assert(that.m_nCols   == m_nCols);
@@ -425,8 +233,8 @@ class VMatrix
           return *this;
        }
 
-
-       VMatrix<T>& operator-()
+/* This is dangerous */
+       VMatrix<T,L>& operator-()
        {
           for (unsigned i = 0; i < m_nData; ++i) {
               m_data[i] = -m_data[i];
@@ -435,8 +243,8 @@ class VMatrix
           return *this;
        }
 
-       // Adds the value t off the diagonals
-       VMatrix<T>& operator+=(T const t)
+       // Adds the value t to the diagonals
+       VMatrix<T,L>& operator+=(T const t)
        {
           unsigned k(std::min(m_nCols, m_nRows));
           T val;
@@ -447,14 +255,26 @@ class VMatrix
           return *this;
        }
 
-
-
        double norm2() const;
 
-       void print(const char* msg = 0) const;
+       void print(const char* msg = 0) const
+       {
+          if (msg) {
+             std::cout << msg << std::endl;
+          }   
+          std::cout << std::fixed << std::showpoint << std::setprecision(2);
+          for (unsigned i = 0; i < m_nRows; ++i) {
+              for (unsigned j = 0; j < m_nCols; ++j) {
+                  std::cout << std::setw(5) << (*this)(i,j) << " ";
+              }   
+              std::cout << std::endl;
+          }   
+          std::cout << std::endl;
+       }
 
        StorageT storage() const { return m_storage; }
-       LayoutT  layout() const { return m_layout; }
+       LayoutT layout() const;
+
 
        bool isZero() const { return m_storage == Zero; }
        bool isDense() const { return m_storage == Dense; }
@@ -462,108 +282,20 @@ class VMatrix
        bool isDiagonal() const { return m_storage == Diagonal; }
 
 // This needs cleaning up 
-      public:
+   public:
 //    protected:
-       void fillZero(Functor<T> const& functor)
-       {
-          // This represents a zero block matrix where the entries are not
-          // explicitly stored.  To initialize a zero block matrix use
-          // the appropriate storage type and the ZeroFunctor.
-          m_data[0] = T();
-       }
-
-
-       void fillDense(Functor<T> const& functor)
-       {
-          unsigned k(0);
-          for (unsigned i = 0; i < m_nRows; ++i) {
-              for (unsigned j = 0; j < m_nCols; ++j, ++k) {
-                  m_data[k] = functor(i,j); 
-              }
+         void fillZero(Functor<T> const& functor)
+         {
+             // This represents a zero block matrix where the entries are not
+             // explicitly stored.  To initialize a matrix with zeros use
+             // the appropriate storage type and the ZeroFunctor.
+             m_data[0] = T();
           }
-       }
 
 
-       void fillDenseCM(Functor<T> const& functor)
-       {
-          unsigned k(0);
-          for (unsigned j = 0; j < m_nCols; ++j) {
-              for (unsigned i = 0; i < m_nRows; ++i, ++k) {
-                  m_data[k] = functor(i,j); 
-              }
-          }
-       }
-
-
-       void fillBanded(Functor<T> const& functor)
-       {
-          int kl(m_stripes[0]);
-          int ku(m_stripes[1]);
-          int k;
-
-          for (int i = 0; i < m_nRows; ++i) {
-              int jmin = std::max(0,i-kl);
-              int jmax = std::min((int)m_nCols,i+ku+1);
-//            std::cout << "j range for i = " << i << " -> (" << jmin << "..." << jmax << ")" <<std::endl;
-              for (int j = jmin ; j < jmax; ++j) {
-                  k = j-i+kl+i*(kl+ku+1);
-//                std::cout << "setting "<< k<< " to " << functor(i,j) << std::endl;
-                  m_data[k] = functor(i,j);
-              }
-          }
-       }
-
-
-       void fillBandedCM(Functor<T> const& functor)
-       {
-          int kl(m_stripes[0]);
-          int ku(m_stripes[1]);
-          int k;
-
-          for (int j = 0; j < m_nCols; ++j) {
-              int imin = std::max(0, j-ku);
-              int imax = std::min((int)m_nRows, j+kl+1);
-              //std::cout << "i range for j = " << j << " -> (" << imin << "..." << imax << ")" <<std::endl;
-              for (int i = imin ; i < imax; ++i) {
-                  k = i-j+ku+j*(kl+ku+1);
-                  m_data[k] = functor(i,j);
-              }
-          }
-       }
-
-
-       void fillStriped(Functor<T> const& functor)
-       {
-          unsigned nStripes(m_stripes.size());
-          unsigned m(std::min(m_nRows,m_nCols));
-
-          for (unsigned k = 0; k < nStripes; ++k) {
-              int offset(m_stripes[k]);
-              if (offset < 0) {
-                 unsigned max(std::min(m_nRows + offset,m_nCols));
-//               std::cout << "offset = " << offset << " running to " << max << std::endl;
-                 for (unsigned j = 0; j < max; ++j) {
-//                    std::cout << "  setting data = " << j + k*m<< " to " 
-//                              << functor(j-offset,j) << std::endl;
-                     m_data[j + k*m] = functor(j-offset,j);
-                 }
-              }else {
-                 unsigned max(std::min(m_nRows, m_nCols-offset));
-//               std::cout << "offset = " << offset << " running to " << max << std::endl;
-                 for (unsigned i = 0; i < max; ++i) {
-//                    std::cout << "  setting data = " << i + k*m << " to " 
-//                              << functor(i,i+offset) << std::endl;
-                     m_data[i + k*m] = functor(i,i+offset);
-                 }
-              } 
-          }
-/*
-          for (int i = 0; i < nStripes*m; ++i) {
-              std::cout << "striped data " << i << " "<< m_data[i]<< std::endl;
-          }
-*/
-       }
-
+       void fillDense(Functor<T> const& functor);
+       void fillBanded(Functor<T> const& functor);
+       void fillStriped(Functor<T> const& functor);
 
        void fillDiagonal(Functor<T> const& functor)
        {
@@ -578,17 +310,15 @@ class VMatrix
        size_t m_nData;       
 
        StorageT m_storage;
-       LayoutT  m_layout;
        std::vector<int> m_stripes;
        T* m_data;
 
    private:
-      void copy(VMatrix<T> const& that)
+      void copy(VMatrix<T,L> const& that)
       {
          m_nRows   = that.m_nRows;
          m_nCols   = that.m_nCols;
          m_storage = that.m_storage;
-         m_layout  = that.m_layout;
          m_stripes = that.m_stripes;
 
          release();

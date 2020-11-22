@@ -5,8 +5,9 @@
  *  Class declarations for managing block matrices.  The interface is desiged
  *  to homogenize the handling of both dense, banded and zero matrices.
  * 
- *  The data in the matrix is not stored explicitly, evaluate() must be 
- *  called to load the give array with  
+ *  Note the LayoutT template parameter refers to the layout of the VMatrix
+ *  blocks.  The blocks themselves are always in RowMajor format, although
+ *  this is not computationally important.
  *
  *****************************************************************************/
 
@@ -17,22 +18,22 @@
 #include "Functor.h"
 
 
-template <class T>
+template <class T, LayoutT L>
 class BlockMatrix
 {
     public:
        BlockMatrix(unsigned const nRowBlocks, unsigned const nColBlocks) :
           m_nRowBlocks(nRowBlocks), m_nColBlocks(nColBlocks)
        {
-          m_blocks = new VMatrix<T>[m_nRowBlocks*m_nColBlocks];
+          m_blocks = new VMatrix<T,L>[m_nRowBlocks*m_nColBlocks];
        }
 
-       BlockMatrix(BlockMatrix<T> const& that) : m_blocks(0)
+       BlockMatrix(BlockMatrix const& that) : m_blocks(0)
        {
           copy(that);
        }
 
-       BlockMatrix(VMatrix<T> const& that) : m_blocks(0)
+       BlockMatrix(VMatrix<T,L> const& that) : m_blocks(0)
        {
           copy(that);
        }
@@ -43,7 +44,7 @@ class BlockMatrix
           return *this;
        }
 
-       BlockMatrix<T>& operator+=(BlockMatrix const& that)
+       BlockMatrix& operator+=(BlockMatrix const& that)
        {
 #ifdef DEBUG
           assert(that.nRowBlocks() == m_nRowBlocks);
@@ -57,7 +58,7 @@ class BlockMatrix
           }
        }
 
-       BlockMatrix<T>& operator-=(BlockMatrix const& that)
+       BlockMatrix& operator-=(BlockMatrix const& that)
        {
 #ifdef DEBUG
           assert(that.nRowBlocks() == m_nRowBlocks);
@@ -71,7 +72,8 @@ class BlockMatrix
           }
        }
 
-       BlockMatrix<T>& operator-()
+/* This is dangerous */
+       BlockMatrix& operator-()
        {
           for (unsigned bi = 0; bi < m_nRowBlocks; ++bi) {
               for (unsigned bj = 0; bj < m_nColBlocks; ++bj) {
@@ -85,12 +87,12 @@ class BlockMatrix
           delete [] m_blocks;
        }
 
-       VMatrix<T>& operator()(unsigned const row, unsigned const col = 0)
+       VMatrix<T,L>& operator()(unsigned const row, unsigned const col = 0)
        {
            return m_blocks[row*m_nColBlocks + col];
        }
 
-       VMatrix<T> const& operator()(unsigned const row, unsigned const col = 0) const
+       VMatrix<T,L> const& operator()(unsigned const row, unsigned const col = 0) const
        {
            return m_blocks[row*m_nColBlocks + col];
        }
@@ -154,7 +156,7 @@ class BlockMatrix
           return true;
        }
 
-       void toDense(VMatrix<T>* vm) const
+       void toDense(VMatrix<T,L>* vm) const
        {
           vm->init(nRows(), nCols(), Dense).bind();
 
@@ -164,7 +166,7 @@ class BlockMatrix
                   unsigned jOff(colOffset(bj));
 //              std::cout << "VMatrix("<< bi << "," << bj << ") with offset (" 
 //                        << iOff << "," << jOff << ")" << std::endl;
-                  VMatrix<T> const& m((*this)(bi,bj));
+                  VMatrix<T,L> const& m((*this)(bi,bj));
                   for (unsigned i = 0; i < m.nRows(); ++i) {
                       for (unsigned j = 0; j < m.nCols(); ++j) {
                           vm->set(iOff+i, jOff+j, m(i,j));
@@ -209,7 +211,7 @@ class BlockMatrix
           std::cout << "Tile sizes:" << std::endl;
           for (unsigned row = 0; row < m_nRowBlocks; ++row) {
               for (unsigned col = 0; col < m_nColBlocks; ++col) {
-                  VMatrix<T> const& m((*this)(row, col));
+                  VMatrix<T,L> const& m((*this)(row, col));
                   std::cout << "(" << m.nRows() <<","<< m.nCols() << ")  ";
               }   
               std::cout << std::endl;
@@ -247,7 +249,7 @@ class BlockMatrix
               unsigned nr = (*this)(bi,0).nRows();
               for (unsigned i = 0; i < nr; ++i) {
                   for (unsigned bj = 0; bj < m_nColBlocks; ++bj) {
-                      VMatrix<T> const& m((*this)(bi, bj));
+                      VMatrix<T,L> const& m((*this)(bi, bj));
                       unsigned nc = m.nCols();
                       for (unsigned j = 0; j < nc; ++j) {
                           if (m(i,j) == 0) {
@@ -267,16 +269,16 @@ class BlockMatrix
     protected:
        unsigned m_nRowBlocks;
        unsigned m_nColBlocks;
-       VMatrix<T>*  m_blocks;
+       VMatrix<T,L>*  m_blocks;
        
     private:
-       void copy(BlockMatrix<T> const& that) 
+       void copy(BlockMatrix<T,L> const& that) 
        {
           m_nRowBlocks = that.m_nRowBlocks;
           m_nColBlocks = that.m_nColBlocks;
 
           if (m_blocks) delete [] m_blocks;
-          m_blocks = new VMatrix<T>[m_nRowBlocks*m_nColBlocks];
+          m_blocks = new VMatrix<T,L>[m_nRowBlocks*m_nColBlocks];
 
           for (unsigned row = 0; row < m_nRowBlocks; ++row) {
               for (unsigned col = 0; col < m_nColBlocks; ++col) {
@@ -285,13 +287,13 @@ class BlockMatrix
           }
       }
 
-      void copy(VMatrix<T> const& that) 
+      void copy(VMatrix<T,L> const& that) 
       {
           m_nRowBlocks = 1;
           m_nColBlocks = 1;
 
           if (m_blocks) delete [] m_blocks;
-          m_blocks = new VMatrix<T>[1];
+          m_blocks = new VMatrix<T,L>[1];
           m_blocks[0] = that;
       }
 };

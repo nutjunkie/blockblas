@@ -56,8 +56,8 @@ int matrix_residue(T const* a, T const* b, unsigned const n)
 }
 
 
-template <class T>
-int matrix_residue(VMatrix<T> const& a, VMatrix<T> const& b)
+template <class T, LayoutT L>
+int matrix_residue(VMatrix<T,L> const& a, VMatrix<T,L> const& b)
 {
    unsigned n(a.nCols()*a.nRows());
    unsigned m(a.nCols()*a.nRows());
@@ -71,7 +71,7 @@ int matrix_residue(VMatrix<T> const& a, VMatrix<T> const& b)
 }
 
 
-int matrix_residue(VMatrix<double> const& a, std::string const& fname)
+int matrix_residue(VMatrix<double,RowMajor> const& a, std::string const& fname)
 {
    std::ifstream ifs(fname.c_str(), std::ios::in);
 
@@ -94,8 +94,24 @@ int matrix_residue(VMatrix<double> const& a, std::string const& fname)
 }
 
 
-template <class T>
-void makeDense(BlockMatrix<T>& bm, unsigned dim, Functor<T> const& functor)
+int matrix_residue(VMatrix<double,ColumnMajor> const& a, std::string const& fname)
+{
+   VMatrix<double,RowMajor> b;
+
+   b.init(a.nRows(), a.nCols(), a.storage());
+
+   for (unsigned i = 0; i < b.nRows(); ++i) {
+       for (unsigned j = 0; j < b.nRows(); ++j) {
+           b.set(i,j,a(i,j));
+       }
+   }
+
+   return matrix_residue(b,fname);
+}
+
+
+template <class T, LayoutT L>
+void makeDense(BlockMatrix<T,L>& bm, unsigned dim, Functor<T> const& functor)
 { 
    unsigned nRows(bm.nRowBlocks());
    unsigned nCols(bm.nColBlocks());
@@ -108,8 +124,8 @@ void makeDense(BlockMatrix<T>& bm, unsigned dim, Functor<T> const& functor)
 }
 
 
-template <class T>
-void makeDiagonal(BlockMatrix<T>& bm, unsigned dim, Functor<T> const& functor)
+template <class T, LayoutT L>
+void makeDiagonal(BlockMatrix<T,L>& bm, unsigned dim, Functor<T> const& functor)
 { 
    unsigned nRows(bm.nRowBlocks());
    unsigned nCols(bm.nColBlocks());
