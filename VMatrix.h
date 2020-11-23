@@ -233,7 +233,7 @@ class VMatrix
           return *this;
        }
 
-/* This is dangerous */
+/* This is dangerous and should be deprecated */
        VMatrix<T,L>& operator-()
        {
           for (unsigned i = 0; i < m_nData; ++i) {

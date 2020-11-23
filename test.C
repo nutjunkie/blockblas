@@ -4,8 +4,14 @@
 #include "Timer.h"
 #include "util.h"
 
+#define COLUMNMAJOR
 
+#ifdef COLUMNMAJOR
 #define LAYOUT ColumnMajor
+#else
+#define LAYOUT RowMajor
+#endif
+
 
 ZeroFunctor<double>      zeroFunctor;
 DebugFunctor             debugFunctor;
@@ -94,8 +100,10 @@ int test_2()
 int test_3()
 {
    print_header(3, "Dense <- Dense x Dense");
-
-#if LAYOUT == RowMajor
+#ifdef COLUMNMAJOR
+   std::cout << "Skipping test, ColumnMajor implementation NYI" << std::endl;
+   return 0;
+#else
    VMatrix<double, LAYOUT> a, b, c;
 
    a.init( 9,10).bind(testFunctor);
@@ -103,10 +111,7 @@ int test_3()
    c.init( 9, 8).bind(zeroFunctor);
    matrix_product(c, a, b); 
 
-   return matrix_residue(c, "test_3.dat");
-#else
-   std::cout << "Skipping test, ColumnMajor implementation NYI" << std::endl;
-   return 0;
+   return matrix_residue(c, "test_3_rm.dat");
 #endif
 }
 
@@ -209,8 +214,10 @@ int test_5(unsigned n)
 int test_6()
 {
    print_header(6, "dense <- diag x dense");
-
-#if LAYOUT==RowMajor
+#ifdef COLUMNMAJOR 
+   std::cout << "Skipping test, ColumnMajor implementation NYI" << std::endl;
+   return 0;
+#else
    VMatrix<double, LAYOUT> a, b, c;
 
    a.init(10,10, Diagonal).bind(testFunctor);
@@ -220,9 +227,6 @@ int test_6()
    matrix_product(c, a, b); 
 
    return matrix_residue(c,"test_6.dat");
-#else
-   std::cout << "Skipping test, ColumnMajor implementation NYI" << std::endl;
-   return 0;
 #endif
 }
 
@@ -230,8 +234,10 @@ int test_6()
 int test_7()
 {
    print_header(7, "dense <- dense x diag");
-
-#if LAYOUT==RowMajor
+#ifdef COLUMNMAJOR 
+   std::cout << "Skipping test, ColumnMajor implementation NYI" << std::endl;
+   return 0;
+#else
    VMatrix<double, LAYOUT> a, b, c;
 
    a.init(10,10, Dense   ).bind(testFunctor);
@@ -241,9 +247,6 @@ int test_7()
    matrix_product(c, a, b); 
 
    return matrix_residue(c,"test_7.dat");
-#else
-   std::cout << "Skipping test, ColumnMajor implementation NYI" << std::endl;
-   return 0;
 #endif
 }
 
@@ -251,8 +254,10 @@ int test_7()
 int test_8()
 {
    print_header(8, "dense <- diag x diag");
-
-#if LAYOUT==RowMajor
+#ifdef COLUMNMAJOR 
+   std::cout << "Skipping test, ColumnMajor implementation NYI" << std::endl;
+   return 0;
+#else
    VMatrix<double, LAYOUT> a, b, c;
 
    a.init(10,10, Diagonal).bind(testFunctor);
@@ -263,9 +268,6 @@ int test_8()
    c.print();
 
    return matrix_residue(c,"test_8.dat");
-#else
-   std::cout << "Skipping test, ColumnMajor implementation NYI" << std::endl;
-   return 0;
 #endif
 }
 
@@ -284,13 +286,15 @@ int test_9()
 
    matrix_product(c, a, b); 
 
-   //a.print("A with stripes");
-   //b.print("B is dense");
-   //c.print("Product of striped x dense");
+   c.print("Product of striped x dense");
 
    // Do a dense version for checking
    a.toDense();
+   a.info();
+   a.print("A with stripes");
+   b.print("B is dense");
    matrix_product(d, a, b); 
+   d.print("Product dense ");
 
    return  matrix_residue(c,d);
 }
@@ -538,6 +542,8 @@ int main()
 {
    std::cout << "Running tests:" << std::endl;
    int ok(0);
+   test_9();
+   return 0;
    ok = ok 
       + test_1()
       + test_2()

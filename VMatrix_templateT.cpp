@@ -298,7 +298,17 @@ void VMatrix<TYPE,ColumnMajor>::set(unsigned const i, unsigned const j, TYPE con
          break;
  
       case Striped: 
-         std::cerr << "VMatrix::set NYI for Striped ColumnMajor matrices" << std::endl;
+         int stripe(j-i);
+         std::vector<int>::iterator it;
+         it = std::find(m_stripes.begin(), m_stripes.end(), stripe);
+
+         if (it != m_stripes.end()) {
+            // We have hit a non-zero element
+            unsigned m(std::min(m_nRows,m_nCols));
+            unsigned index = std::distance(m_stripes.begin(), it);
+            int ij = (stripe < 0) ? j : i;
+            m_data[ij + index*m] = value;
+         }
          break;
  
       case Dense:
@@ -332,6 +342,8 @@ void VMatrix<TYPE,RowMajor>::toDense()
 template<>
 void VMatrix<TYPE,ColumnMajor>::toDense()
 {
+   if (m_storage == Dense) return;
+
    size_t n(m_nRows*m_nCols);
    TYPE* data = new TYPE[n];
    unsigned k(0);

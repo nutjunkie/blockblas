@@ -58,10 +58,10 @@ void jacobi_solver(BlockMatrix<T,L>& x,  BlockMatrix<T,L> const& A, BlockMatrix<
            lastx(i) = x(i);
        }
 
-       std::cout << std::scientific;
-       std::cout << "Iter: " << iter << " Vector residual = " << std::sqrt(res) << std::endl;
+       //std::cout << std::scientific;
+       //std::cout << "Iter: " << iter << " Vector residual = " << std::sqrt(res) << std::endl;
        if (std::sqrt(res) < 1e-8) {
-          std::cout << "CONVERGED, iterations "<< iter << std::endl;
+          //std::cout << "CONVERGED, iterations "<< iter << std::endl;
           break;
           BlockMatrix<T,L> result(x);
           result.bind(zeroFunctor);

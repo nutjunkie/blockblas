@@ -89,7 +89,7 @@
 int main()
 {
     std::vector<int> stripes{-3,-2,-1,0,1,2,3};
-    VMatrix<double> vmA, vmb;
+    VMatrix<double,ColumnMajor> vmA, vmb;
     vmA.init(11,11, stripes).bind(StencilFunctor());
     vmb.init(11,1,  Dense).bind(DebugFunctor());
 
@@ -367,32 +367,33 @@ int main()
                 {
                    std::cout<< std::setprecision(7);
 
-/*
-                   for (int i = 0; i < M0*N; ++i){
-                       std::cout << workc[i].real()<<" + " << workc[i].imag() << "I" << std::endl;
-                   }
-*/
-
-                   std::cout << "Complex root: "<< Ze << std::endl;
+//                 std::cout << "Complex root: "<< Ze << std::endl;
 //                 std::cout << "Num RHS:      "<< fpm[23-1] << std::endl;
-                   VMatrix<complex> vmAc;
+
+                   VMatrix<complex,ColumnMajor> vmAc;
                    vmAc.fromDouble(vmA);
                    -vmAc;
                    vmAc += Ze;   // overloaded operator only adjusts the diagonal
                    vmAc.toDense();
-//                 vmAc.print("A Matrix");
 
-                   VMatrix<complex> vmBc;
-                   vmBc.init(N,M0,Dense).bindCM(workc);
-//                 vmBc.print("complex RHS");
+                   VMatrix<complex,ColumnMajor> vmBc;
+                   vmBc.init(N,M0,Dense).bind(workc);  // bindCM
+  
+/*
+                   complex* tmp(vmBc.data());
+                   for (int i = 0; i < M0*N; ++i){
+                       std::cout << workc[i].real()<<" + " << workc[i].imag() << "I" << "    "
+                                 <<   tmp[i].real()<<" + " <<   tmp[i].imag() << "I" << std::endl;
+                   }
+*/
 
                    DiagonalFunctor<complex> diag(complex(1.0,0.0));
-                   VMatrix<complex> vmQc;
+                   VMatrix<complex,ColumnMajor> vmQc;
                    vmQc.init(N,M0,Dense).bind(diag);
 
-                   BlockMatrix<complex> bmAc(vmAc);
-                   BlockMatrix<complex> bmBc(vmBc);
-                   BlockMatrix<complex> bmQc(vmQc);
+                   BlockMatrix<complex,ColumnMajor> bmAc(vmAc);
+                   BlockMatrix<complex,ColumnMajor> bmBc(vmBc);
+                   BlockMatrix<complex,ColumnMajor> bmQc(vmQc);
 
                    jacobi_solver(bmQc, bmAc, bmBc);
 
@@ -431,7 +432,7 @@ int main()
                       return 1;
                    }
 
-                    status = mkl_sparse_z_export_csr (zC, &indexing_zC, &rows_zC, &cols_zC, &rowsz, 
+                    status = mkl_sparse_z_export_csr(zC, &indexing_zC, &rows_zC, &cols_zC, &rowsz, 
                         &pdum, &colsz, &cvalz);
 
 /*
@@ -452,10 +453,10 @@ int main()
                    //mkl_zdnscsr (job, &N, &N, dense_Az, &N, cval, cols, rows, &info);
                     
 
-                   VMatrix<complex> vmDenseA;
+                   VMatrix<complex,ColumnMajor> vmDenseA;
                    vmDenseA.init(N,N,Dense).bind(dense_Az);
-vmDenseA.print("Dense Matrix Ze*B-A from CSR");
-vmAc.print("My A matrix");
+                   vmDenseA.print("Dense Matrix Ze*B-A from CSR");
+                   vmAc.print("My A matrix");
 */
 
                     if (status != SPARSE_STATUS_SUCCESS) {
@@ -486,21 +487,14 @@ vmAc.print("My A matrix");
                        return 1;
                     }
 
-                    VMatrix<complex> vmCaux;
-                    vmCaux.init(N,M0,Dense).bindCM(workc);
+                    VMatrix<complex,ColumnMajor> vmCaux;
+                    vmCaux.init(N,M0,Dense).bind(workc);  // bindCM
 
                     //vmCaux.print("Pardiso Solution from workc");
                     //bmQc.print("Q solution from Jacobi");
                     matrix_residue(vmCaux,bmQc(0,0));
 
-/*
-                    vmCaux.bind(ZeroFunctor<complex>());
-                    matrix_product(vmCaux, vmAc, bmQc(0,0));
-                    vmCaux -= vmBc;
-                    vmCaux.print("residual matrix");
-*/
-
-                    bmQc(0,0).unbindCM(workc);
+                    bmQc(0,0).unbind(workc);  // unbindCM
 
                 }
                 std::cout << "===============================================================" << std::endl;
@@ -511,6 +505,7 @@ vmAc.print("My A matrix");
                 //!!!!!!!!!!!!! Perform multiplication A x[0:N-1][i:j]      !!!!!!!!
                 //!!!!!!!!!!!!! and put result into work[0:N-1][i:j]        !!!!!!!!
                 //!!!!!!!!!!!!! where i = fpm[23]-1, j = fpm[23]+fpm[24]-2  !!!!!!!!
+                
                 colsX = fpm[24];
                 imem = N*(fpm[23]-1);
                 status = mkl_sparse_d_mm (operation, one, A, descrA, layout, X+imem, colsX, N, zero, work+imem, N);
@@ -520,18 +515,28 @@ vmAc.print("My A matrix");
                     return 1;
                 }
 
-                VMatrix<double> vmX, vmW;
-                vmX.init(N,colsX).bindCM(X+imem);
-                vmW.init(N,colsX).bindCM(ZeroFunctor<double>());
-                matrix_product(vmW, vmA, vmX);
 
-                vmW.unbindCM(work+imem);
-             
+                std::cout << "offset imem = " << imem << std::endl;
+
+                VMatrix<double,ColumnMajor> vmX, vmW;
+                vmX.init(N,colsX).bind(X+imem);     // bindCM
+                vmW.init(N,colsX).bind(ZeroFunctor<double>());
+                vmA.toDense();
+                matrix_product(vmW, vmA, vmX);
+                vmW.unbind(work+imem);  // unbindCM
+
 /*
-                vmX.init(N,colsX).bindCM(work+imem);
+                double* tmp1(work+imem);
+                double* tmp2(vmW.data());
+                 
+                for (int i = 0; i < colsX*N; ++i){
+                    std::cout << tmp1[i] << "    " << tmp2[i] << "    diff   " << tmp1[i] - tmp2[i] << std::endl;
+                }
+             
+                vmX.init(N,colsX).bind(work+imem);   // bindCM
                 vmX.print("Case 30: work+imem CM");
 
-                vmX.init(N,colsX).bindCM(work+imem);
+                vmX.init(N,colsX).bind(work+imem);   // bindCM
                 vmX.print("Case 30: work+imem");
 */
 
@@ -554,9 +559,11 @@ vmAc.print("My A matrix");
                     return 1;
                 }
 
-                VMatrix<double> vmX, vmW;
-                vmX.init(N,colsX).bindCM(X+imem);
-                vmW.init(N,colsX).bindCM(work+imem);
+                VMatrix<double,ColumnMajor> vmX, vmW;
+                vmX.init(N,colsX).bind(X+imem);
+                //vmX.init(N,colsX).bindCM(X+imem);
+                vmW.init(N,colsX).bind(work+imem);
+                //vmW.init(N,colsX).bindCM(work+imem);
 
                 memcpy(work+imem, X+imem, colsX*N*sizeof(double));
                 

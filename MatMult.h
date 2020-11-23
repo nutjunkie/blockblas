@@ -16,6 +16,9 @@ template<class T, LayoutT L>
 void gbmv(VMatrix<T,L> const& A, VMatrix<T,L> const& B, VMatrix<T,L>& C, int const kl,
    int const ku, int const band, int const vec); 
    
+template<class T, LayoutT L>
+void gsmm(VMatrix<T,L> const& A, VMatrix<T,L> const& B, VMatrix<T,L>& C);
+ 
 
 // Accumulates the A.B product into C:
 //    C += A.B 
@@ -109,36 +112,7 @@ void matrix_product(VMatrix<T,L>& C, VMatrix<T,L> const& A, VMatrix<T,L> const& 
             storageB == Dense   &&
             storageC == Dense) {
 
-      unsigned rowsC(C.nRows());
-      unsigned colsC(C.nCols());
-
-      std::vector<int> const& stripes(A.stripes());
-      unsigned rowsA(A.nRows());
-      unsigned colsA(A.nCols());
-      unsigned m(std::min(rowsA,colsA));
-
-      for (unsigned s = 0; s < stripes.size(); ++s) {
-          int offset(stripes[s]);
-          int offC(std::max(0,-offset));
-          int offB(std::max(0, offset));
-          // Contraction length
-          int len = (offset < 0) ? std::min(rowsA+offset, colsA)
-                                 : std::min(rowsA, colsA-offset);
-
-//        std::cout << "offset: " << offset << " offC: " << offC << " offB: " << offB 
-//                  << " contraction: " <<  len  << std::endl;;
-
-#pragma omp parallel for
-          for (unsigned i = 0; i < len; ++i) {
-              T        a0(a[i + s*m]);
-              T const* b0(&b[(offB+i)*colsC]);
-              T*       c0(&c[(offC+i)*colsC]);
-//            cblas_daxpy(colsC, a0, b0, 1, c0, 1);
-              for (unsigned j = 0; j < colsC; ++j) {
-                  c0[j] += a0*b0[j];
-              }
-          }
-      }
+      gsmm(A, B, C);
 
    }else if (storageA == Dense   && 
              storageB == Striped &&
