@@ -360,3 +360,73 @@ void VMatrix<TYPE,ColumnMajor>::toDense()
    m_storage = Dense;
    m_stripes.clear();
 }
+
+
+template<>
+void VMatrix<TYPE,ColumnMajor>::bind(TYPE const* data, unsigned const ld)
+{
+#ifdef DEBUG
+   assert(m_storage == Dense);
+#endif
+
+   bind();
+   unsigned k(0);
+   for (unsigned j = 0; j < m_nCols; ++j) {
+       TYPE const* d(data+ld*j);
+       for (unsigned i = 0; i < m_nRows; ++i, ++k) {
+           m_data[k] = d[i];
+       }
+   }
+}
+
+
+template<>
+void VMatrix<TYPE,RowMajor>::bind(TYPE const* data, unsigned const ld)
+{
+#ifdef DEBUG
+   assert(m_storage == Dense);
+#endif
+
+   bind();
+   unsigned k(0);
+   for (unsigned i = 0; i < m_nRows; ++i) {
+       TYPE const* d(data+ld*i);
+       for (unsigned j = 0; j < m_nCols; ++j, ++k) {
+           m_data[k] = d[j];
+       }
+   }
+}
+
+
+template<>
+void VMatrix<TYPE,ColumnMajor>::unbind(TYPE* data, unsigned const ld)
+{
+#ifdef DEBUG
+   assert(m_storage == Dense);
+#endif
+
+   unsigned k(0);
+   for (unsigned j = 0; j < m_nCols; ++j) {
+       TYPE* d(data+ld*j);
+       for (unsigned i = 0; i < m_nRows; ++i, ++k) {
+           d[i] = m_data[k];
+       }
+   }
+}
+
+
+template<>
+void VMatrix<TYPE,RowMajor>::unbind(TYPE* data, unsigned const ld)
+{
+#ifdef DEBUG
+   assert(m_storage == Dense);
+#endif
+
+   unsigned k(0);
+   for (unsigned i = 0; i < m_nRows; ++i) {
+       TYPE* d(data+ld*i);
+       for (unsigned j = 0; j < m_nCols; ++j, ++k) {
+           d[j] = m_data[k];
+       }
+   }
+}

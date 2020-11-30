@@ -38,6 +38,8 @@ class BlockMatrix
           copy(that);
        }
 
+       BlockMatrix& fromDouble(BlockMatrix<double,L> const& that);
+
        BlockMatrix& operator=(BlockMatrix const& that)
        {
           if (this != &that) copy(that);
@@ -56,6 +58,7 @@ class BlockMatrix
                   (*this)(bi,bj) += that(bi,bj);
               }
           }
+          return *this;
        }
 
        BlockMatrix& operator-=(BlockMatrix const& that)
@@ -70,7 +73,20 @@ class BlockMatrix
                   (*this)(bi,bj) -= that(bi,bj);
               }
           }
+          return *this;
        }
+
+       // Adds the value t to the diagonals
+       BlockMatrix& operator+=(T const t)
+       {
+          unsigned n(std::min(m_nColBlocks, m_nRowBlocks));
+          for (unsigned bi = 0; bi < n; ++bi) {
+              (*this)(bi,bi) += t;
+          }
+          return *this;
+       }
+
+
 
 /* This is dangerous */
        BlockMatrix& operator-()
@@ -80,6 +96,7 @@ class BlockMatrix
                   -(*this)(bi,bj);
               }
           }
+          return *this;
        }
        
        ~BlockMatrix()
@@ -105,6 +122,9 @@ class BlockMatrix
               }
           }
        }
+
+       void bind(T const* data);
+       void unbind(T* data);
 
        unsigned nRowBlocks() const { return m_nRowBlocks; }
        unsigned nColBlocks() const { return m_nColBlocks; }
@@ -266,10 +286,11 @@ class BlockMatrix
           }
        }
 
-    protected:
+    // This needs to be made protected
+    public:
        unsigned m_nRowBlocks;
        unsigned m_nColBlocks;
-       VMatrix<T,L>*  m_blocks;
+       VMatrix<T,L>* m_blocks;
        
     private:
        void copy(BlockMatrix<T,L> const& that) 

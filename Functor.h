@@ -2,11 +2,7 @@
 #define FUNCTOR_H
 /******************************************************************************
  * 
- *  Class declarations for managing block matrices.  The interface is desiged
- *  to homogenize the handling of both dense, banded and zero matrices.
- * 
- *  The data in the matrix is not stored explicitly, evaluate() must be 
- *  called to load the give array with  
+ *  Functor definitions for conveniently populating Tiles
  *
  *****************************************************************************/
 
@@ -44,7 +40,7 @@ class DiagonalFunctor : public Functor<T>
          return i == j ? m_val : T(0.0); 
       } 
 
-    private:
+   private:
       T m_val;
 };
 

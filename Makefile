@@ -3,10 +3,18 @@ CXXFLAGS = -std=c++11 -g -pg  -O2 -fopenmp -funroll-loops -ffast-math
 LIBS = -mkl
 
 HEADERS = util.h Timer.h VMatrix.h BlockMatrix.h JacobiSolver.h Functor.h
-OBJECTS =  MatMult.o VMatrix.o
+OBJECTS =  MatMult.o VMatrix.o BlockMatrix.o
+
+TILE_HEADERS = Tile.h ZeroTile.h DiagonalTile.h StripedTile.h CMTile.h RMTile.h
+TILE_OBJECTS = CMTile.o RMTile.o
 
 %.o : %.C %.h
 	$(CXX) -c $(LIBS) $(CXXFLAGS) $< -o $@
+
+
+tile_test: tile_test.o $(TILE_HEADERS) $(TILE_OBJECTS)
+	$(CXX) $(CXXFLAGS) -o tile_test $(LIBS) $(TILE_OBJECTS) tile_test.o
+	
 
 
 feast: feast.o $(OBJECTS) $(HEADERS)
@@ -25,3 +33,5 @@ clean:
 	rm -f $(OBJECTS) test.o test timing.o timing blas.o blas
 
 VMatrix.o: VMatrix_templateT.cpp VMatrix_templateL.cpp
+
+BlockMatrix.o: BlockMatrix_templateT.cpp BlockMatrix_templateL.cpp

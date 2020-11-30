@@ -49,40 +49,88 @@
 
 
 
-int diagonalize(VMatrix<double,ColumnMajor>&, unsigned const subspace, const double Emin, const double Emax);
+int diagonalize(BlockMatrix<double,ColumnMajor>&, unsigned const subspace, const double Emin, const double Emax);
 int sample();
 
 
 
 int main()
 {
+    //return sample();
+
     int rv(0);
     unsigned const matsize(21);
-    unsigned const subspace(11);
+    unsigned const subspace(12);
 
     std::vector<int> stripes{-3,-2,-1,0,1,2,3};
     VMatrix<double,ColumnMajor> A;
     A.init(matsize,matsize, stripes).bind(StencilFunctor());
-
-    A.set( 0, 0, 5.0);
-    A.set( 1, 0, 2.0);
-    A.set( 0, 1, 2.0);
-    A.set( 9,10, 2.0);
-    A.set(10, 9, 2.0);
-    A.set(10,10, 5.0);
 
     //A.print("A Matrix");
 
     double const Emin(3.0);
     double const Emax(7.0);
 
-    rv = diagonalize(A, subspace, Emin, Emax);
+/*
+3.281006155809338e+00  
+3.748218449858668e+00  
+3.999999999999995e+00  
+4.066356277696118e+00  
+4.080328529416478e+00  
+4.118518665924904e+00  
+4.317259451657928e+00  
+4.831631349313360e+00  
+5.691236169535556e+00  
+6.903393220247046e+00
+
+{15.7014, 14.8414, 13.5213, 11.8924, 10.1325, 8.41899, 6.90339, \
+5.69124, 4.83163, 4.31726, 4.11852, 4.08033, 4.06636, 4., 3.74822, \
+3.28101, 2.64571, 1.91402, 1.18425, 0.563342, 0.146687}
+*/
+
+    BlockMatrix<double,ColumnMajor> bA(1,1);
+    for (unsigned bi = 0; bi < bA.nRowBlocks(); ++bi) {
+        for (unsigned bj = 0; bj < bA.nColBlocks(); ++bj) {
+            bA(bi,bj).init(21,21);
+        }
+    }
+
+    BlockMatrix<double,ColumnMajor> bB(3,3);
+    for (unsigned bi = 0; bi < bB.nRowBlocks(); ++bi) {
+        for (unsigned bj = 0; bj < bB.nColBlocks(); ++bj) {
+            bB(bi,bj).init(7,7);
+        }
+    }
+
+    A.toDense();
+/*
+    double* AA = A.data();
+    int k(0);
+
+    for (int i = 0; i < matsize; ++i) {
+       for (int j = 0; j < matsize; ++j, ++k) {
+           std::cout << AA[k] <<std::endl;
+       }
+    }
+
+    return 0;
+*/
+
+    bA.bind(A.data());
+    bA.info();
+    bA.print();
+
+    bB.bind(A.data());
+    bB.info();
+    bB.print();
+
+    rv = diagonalize(bB, subspace, Emin, Emax);
     return rv;
 }
 
 
 
-int diagonalize(VMatrix<double,ColumnMajor>& A, unsigned const subspace, const double Emin, const double Emax)
+int diagonalize(BlockMatrix<double,ColumnMajor>& A, unsigned const subspace, const double Emin, const double Emax)
 {
     const MKL_INT N = A.nCols();
 
@@ -156,32 +204,44 @@ int diagonalize(VMatrix<double,ColumnMajor>& A, unsigned const subspace, const d
 
 //             std::cout << "Complex root: "<< Ze << std::endl;
 //             std::cout << "Num RHS:      "<< fpm[23-1] << std::endl;
-//                 
 //             zC = Ze * zB + zA
-               VMatrix<complex,ColumnMajor> vmAc;
-               vmAc.fromDouble(A);
-               -vmAc;
-               vmAc += Ze;   // overloaded operator only adjusts the diagonal
-               vmAc.toDense();
-//             vmAc.print("A Matrix");
 
-               VMatrix<complex,ColumnMajor> vmBc;
-               vmBc.init(N,M0,Dense).bind(workc);
-//             vmBc.print("complex RHS");
 
-               DiagonalFunctor<complex> diag(complex(1.0,0.0));
+
+               BlockMatrix<complex,ColumnMajor> bmAc(A.nRowBlocks(), A.nColBlocks());
+               bmAc.fromDouble(A);
+               -bmAc;
+               bmAc += Ze;   // overloaded operator only adjusts the diagonal
+
+               unsigned nBlocks(std::min(bmAc.nRowBlocks(), bmAc.nColBlocks() ));
+               for (unsigned bi = 0; bi < nBlocks; ++bi) {
+                   bmAc(bi,bi).toDense();
+               }
+
+
+               BlockMatrix<complex,ColumnMajor> bmBc(nBlocks,1);
+               for (unsigned bi = 0; bi < nBlocks; ++bi) {
+                   bmBc(bi,0).init(bmAc(bi,0).nRows(),M0);
+               }
+               bmBc.bind(workc);
+               //bmBc.print("Bound work director");
+
                VMatrix<complex,ColumnMajor> vmQc;
+               DiagonalFunctor<complex> diag(complex(1.0,0.0));
                vmQc.init(N,M0,Dense).bind(diag);
+
+               BlockMatrix<complex,ColumnMajor> bmQc(nBlocks,1);
+               for (unsigned bi = 0; bi < nBlocks; ++bi) {
+                   bmQc(bi,0).init(bmAc(bi,0).nRows(),M0);
+               }
+               bmQc.bind(vmQc.data());
 
                // Solve (ZeB-A) caux = workc[0:N-1][0:M0-1]
                // and put result into  workc
 
-               BlockMatrix<complex,ColumnMajor> bmAc(vmAc);
-               BlockMatrix<complex,ColumnMajor> bmBc(vmBc);
-               BlockMatrix<complex,ColumnMajor> bmQc(vmQc);
-
                jacobi_solver(bmQc, bmAc, bmBc);
-               bmQc(0,0).unbind(workc);
+               bmQc.unbind(workc);
+               //bmQc.print("Jacobi solution");
 
             } break;
 
@@ -195,9 +255,23 @@ int diagonalize(VMatrix<double,ColumnMajor>& A, unsigned const subspace, const d
                 VMatrix<double,ColumnMajor> vmX, vmW;
                 vmX.init(N,colsX).bind(X+imem);
                 vmW.init(N,colsX).bind(ZeroFunctor<double>());
-                A.toDense();
-                matrix_product(vmW, A, vmX);
-                vmW.unbind(work+imem);
+
+                BlockMatrix<double,ColumnMajor> bmX(vmX);
+                BlockMatrix<double,ColumnMajor> bmW(vmW); 
+
+                double* pA = new double[A.nRows()*A.nCols()];
+
+                A.unbind(pA);
+
+                BlockMatrix<double,ColumnMajor> bmA(1,1);
+                bmA(0,0).init(A.nRows(),A.nCols());
+                bmA.bind(pA);
+   
+                matrix_product(bmW, bmA, bmX);
+                //matrix_product(bmW, A, bmX);
+                bmW(0,0).unbind(work+imem);
+
+                delete []  pA;
 
             } break;
                
@@ -301,7 +375,9 @@ int sample()
     double const Emin(3.0);
     double const Emax(7.0);
 
-    int rv = diagonalize(A, subspace, Emin, Emax);
+    BlockMatrix<double,ColumnMajor> bA(A);
+
+    int rv = diagonalize(bA, subspace, Emin, Emax);
     return rv;
 }
 

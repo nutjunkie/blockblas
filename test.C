@@ -379,28 +379,50 @@ int test_12()
 
 int test_13()
 {
-/*
-   print_header(13, "Colum-major matrices");
+   print_header(13, "BlockMatrix::bind");
 
-   VMatrix<double, LAYOUT> a, b, c, d;
-   unsigned dim(5);
-   unsigned nvec(3);
+   VMatrix<double, ColumnMajor> a;
+   
+   a.init(12,16, Dense).bind(debugFunctor);
+   a.print("VMatrix a");
 
-   a.init(dim,dim,1,1).bindCM(debugFunctor);
-   b.init(dim,nvec).bindCM(debugFunctor);
-   c.init(dim,nvec).bindCM(zeroFunctor);
-   d.init(dim,nvec).bindCM(zeroFunctor);
+   double* data(a.data());
 
-   a.print("banded matrix print:");
-   b.print("vector print:");
+   unsigned nRowBlocks(2);
+   unsigned nColBlocks(4);
+   BlockMatrix<double, ColumnMajor> A(nRowBlocks,nColBlocks);
 
-   matrix_product(c, a, b); 
-   c.print("product print:");
-   a.toDense();
-   matrix_product(d, a, b); 
+   for (unsigned bi = 0; bi < nRowBlocks; ++bi) {
+       for (unsigned bj = 0; bj < nColBlocks; ++bj) {
+           A(bi,bj).init(6,4);
+       }
+   }
 
-   return matrix_residue(d,c);
-*/
+   A.bind(data);
+   A.print("BlockMatrix A");
+
+   double junk[200];
+
+   //weird bug, if this is set to data it don't work
+   //double* d = data;
+   double* d = junk;
+
+   A.unbind(d);
+
+   for (int i = 0; i < 20; ++i ){
+       std::cout << d[i] << std::endl;
+   }
+
+   a.init(12,16).bind(d);
+   a.print("VMatrix a");
+
+   a.unbind(d);
+   for (int i = 0; i < 20; ++i ){
+       std::cout << d[i] << std::endl;
+   }
+
+
+
    return 0;
 }
 
@@ -542,7 +564,10 @@ int main()
 {
    std::cout << "Running tests:" << std::endl;
    int ok(0);
-   test_9();
+   test_13();
+   test_15();
+   test_17();
+
    return 0;
    ok = ok 
       + test_1()
