@@ -33,6 +33,10 @@ class DiagonalTile : public Tile<T>
        {
            return (i==j) ? i : this->m_nData; 
        }
+
+
+      void fill(Functor<T> const& functor) { Tile<T>::fill(functor); }
+      void fill() { Tile<T>::fill(); }
 };
 
 #endif

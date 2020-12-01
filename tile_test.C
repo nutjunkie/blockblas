@@ -4,6 +4,8 @@
 #include "CMTile.h"
 #include "Functor.h"
 
+#include "TileArray.h"
+
 
 
 void print_header(unsigned n, char const* header)
@@ -116,7 +118,7 @@ int test_4()
    CMTile<double> v(5,5);
    CMTile<double> u(3,3);
    v.bind(m);   
-   v.init();
+   v.fill();
 
    u.bind(m,5);   
    u.info();
@@ -181,7 +183,7 @@ int test_6()
 
    CMTile<double> B(6,8), C(10,8);
    B.fill(DebugFunctor());
-   C.init();
+   C.fill();
 
    A.print("Matrix A");
    CMTile<complex> Z;
@@ -222,11 +224,55 @@ int test_7()
    A += C;
    A.print("After adding C");
 
+   A.scale(-1.0);
+
    CMTile<double> B(10,12);
    B.bind(a);
    B.print("Buffer contents ");
 }
 
+
+int test_8()
+{
+   print_header(8,"TileArray");
+
+   unsigned nRows(5);
+   unsigned nCols(4);
+
+   unsigned nR(3);
+   unsigned nC(2);
+
+   TileArray<double> TA(nRows,nCols);
+
+   for (unsigned bi = 0; bi < nRows; ++bi) {
+       for (unsigned bj = 0; bj < nCols; ++bj) {
+           TA.set(bi,bj, new CMTile<double>(nR,nC));
+           TA(bi,bj).fill(DebugFunctor());
+       }
+   }
+
+   TA.info("TileArray print");
+   TA.print("TileArray print");
+
+   double m[200];
+   for (unsigned i = 0; i < 200; ++i) {
+       m[i] = 1.0*(i+1);
+   }
+
+   TA.bind(m);
+   TA.print("bound TileArray from data");
+
+   TileArray<double> TB(TA);
+   TB.print("TileArray from copy");
+
+   TA += TB;
+
+   TA.print("TileArray after add ");
+   std::cout << "Printing array:" << std::endl;
+   for (unsigned i = 0; i < 200; ++i) {
+       std::cout << "m[" << i << "] = " << m[i] << std::endl;
+   }
+}
 
 
 
@@ -243,6 +289,7 @@ int main()
       + test_5()
       + test_6()
       + test_7()
+      + test_8()
    ;
 
    std::cout << std::endl;

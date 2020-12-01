@@ -6,11 +6,12 @@
  * 
  *****************************************************************************/
 
+#include <assert.h>
+
 #include <cstddef>
 #include <cstring>   // memset
 #include <iostream>
 #include <iomanip>
-
 #include "Functor.h"
 
 
@@ -19,12 +20,20 @@ template <class T>
 class Tile
 {
    public:
+      template <class T>
+      friend Tile<T>* TileFactory(StorageT const storage);
+       
+      template <class T>
+      friend  Tile<T>* TileFactory(Tile<T> const& that);
+
+   public:
       // On construction, the Tile does not have any data associated with it.
       // Actual data can be either bound externally (using bind(T*)) or allocated
-      // using alloc.
-      Tile(size_t const nRows = 0, size_t const nCols = 0) : 
-         m_nRows(nRows), m_nCols(nCols), m_data(0), m_nData(0), m_ownData(false)
-      { }
+      // using alloc().
+      Tile(size_t const nRows = 0, size_t const nCols = 0) : m_data(0), m_nData(0), m_ownData(false)
+      { 
+         resize(nRows,nCols);
+      }
 
 
       Tile(Tile<T> const& that) : m_data(0)
@@ -36,6 +45,14 @@ class Tile
       ~Tile() 
       { 
          dealloc(); 
+      }
+
+
+      void resize(size_t nRows, size_t nCols) 
+      {
+         dealloc();
+         m_nRows = nRows;
+         m_nCols = nCols;
       }
 
 
@@ -86,9 +103,10 @@ class Tile
 
       void dealloc() 
       {
-         if (m_ownData) delete [] m_data;
-         m_data  = 0;
-         m_nData = 0;
+         if (m_ownData && m_data) delete [] m_data;
+         m_data    = 0;
+         m_nData   = 0;
+         m_ownData = false;
       }
 
 
@@ -98,29 +116,21 @@ class Tile
       }
 
 
-      void init()
-      {
-         if (!isBound()) alloc();
-         memset(m_data, 0, m_nData*sizeof(T));
-      }
-
-
       // This 'borrows' the memory (shared pointer?)
       Tile& bind(T* data)
       {
-          if (m_data) dealloc();
-          m_ownData = false;
-          m_nData = numData();
-          m_data  = data;
-          return *this;
+         if (isBound()) dealloc();
+         m_ownData = false;
+         m_nData = numData();
+         m_data  = data;
+         return *this;
       }
 
-      // Release the pointer for management elsewhere, if we don't own it
-      T* release() 
+
+      void fill()
       {
-         T* data(0);
-         if (!m_ownData) dealloc();
-         return data;
+         if (!isBound()) alloc();
+         memset(m_data, 0, m_nData*sizeof(T));
       }
 
 
@@ -151,16 +161,6 @@ class Tile
       }
 
 
-      Tile<T>& scale(T const alpha)
-      {
-         for (unsigned i = 0; i < m_nData; ++i) {
-             m_data[i] = alpha*m_data[i];
-         }
-
-         return *this;
-      }
-
-       
       // This is general, but very inefficient.  The copy() functions
       // should be better when Tile classes and data types match.
       template <class U>
@@ -181,13 +181,12 @@ class Tile
       }
 
        
-      virtual Tile<T>& operator+=(Tile<T>& that) 
+      virtual Tile<T>& operator+=(Tile<T> const& that) 
       {
-#ifdef DEBUG
-         std::cerr << "WARNING: unimplemented operator += called" << std::endl;
+         std::cerr << "WARNING: unoptimized operator += called" << std::endl;
          assert(that.m_nCols == m_nCols);
          assert(that.m_nRows == m_nRows);
-#endif
+
          T val;
          for (unsigned j = 0; j < m_nCols; ++j) {
              for (unsigned i = 0; i < m_nRows; ++i) {
@@ -199,7 +198,35 @@ class Tile
          return *this;
       }
 
-     
+
+      virtual Tile<T>& operator-=(Tile<T> const& that) 
+      {
+         std::cerr << "WARNING: unoptimized operator += called" << std::endl;
+         assert(that.m_nCols == m_nCols);
+         assert(that.m_nRows == m_nRows);
+
+         T val;
+         for (unsigned j = 0; j < m_nCols; ++j) {
+             for (unsigned i = 0; i < m_nRows; ++i) {
+                 val = (*this)(i,j);
+                 set(i,j,val - that(i,j));
+             }
+         }
+
+         return *this;
+      }
+
+
+      virtual Tile<T>& scale(T const alpha)
+      {
+         for (unsigned i = 0; i < m_nData; ++i) {
+             m_data[i] = alpha*m_data[i];
+         }
+
+         return *this;
+      }
+
+ 
       // Adds the value t to the diagonals
       Tile<T>& addToDiag(T const t)
       {
@@ -269,7 +296,7 @@ class Tile
 
          if (that.isBound()) {
             alloc(that.m_nData);
-            memcpy(m_data,that.m_data,m_nData*sizeof(T));
+            memcpy(m_data, that.m_data, m_nData*sizeof(T));
          }
       }
 };

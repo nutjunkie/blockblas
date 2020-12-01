@@ -60,6 +60,7 @@ class StripedTile : public Tile<T>
        // Not sure why these pass-throughs are necessary
        void bind(T* data) { Tile<T>::bind(data); }
        void fill(Functor<T> const& functor) { Tile<T>::fill(functor); }
+       void fill() { Tile<T>::fill(); }
 
 
    protected:

@@ -20,6 +20,11 @@ class CMTile : public Tile<T>
          m_leadingDim = nRows;
       }
 
+      CMTile(CMTile<T> const& that)
+      {
+         copy(that);
+      }
+
 
       StorageT storage() const
       {
@@ -27,7 +32,7 @@ class CMTile : public Tile<T>
       }
 
 
-      size_t numData () const
+      size_t numData() const
       {
          return m_leadingDim * this->m_nCols;
       }
@@ -41,7 +46,7 @@ class CMTile : public Tile<T>
 
       size_t indexOf(unsigned const i, unsigned const j) const
       {
-         return (i + j*leadingDim());
+         return (i + j*m_leadingDim);
       }
 
 
@@ -69,6 +74,8 @@ class CMTile : public Tile<T>
              *a += b[i];
               a += m_leadingDim + 1;
          }
+
+         return *this;
       }
 
 
@@ -94,11 +101,80 @@ class CMTile : public Tile<T>
                  a[i] += b[i];
              }
          }
+
+         return *this;
+      }
+
+
+      CMTile& operator-=(DiagonalTile<T> const& that)
+      {
+         size_t nRows(this->m_nRows);
+         size_t nCols(this->m_nCols);
+#ifdef DEBUG          
+         assert(nCols == that.nCols());
+         assert(nRows == that.nRows());
+#endif
+         unsigned m(std::min(nRows,nCols));
+
+         T* a(this->data());
+         T const* b(that.data());
+
+         for (unsigned i = 0; i < m; ++i) {
+             *a -= b[i];
+              a += m_leadingDim + 1;
+         }
+
+         return *this;
+      }
+
+
+      CMTile& operator-=(CMTile<T> const& that)
+      {
+         size_t nRows(this->m_nRows);
+         size_t nCols(this->m_nCols);
+         size_t lda(this->m_leadingDim);
+         size_t ldb(that.leadingDim());
+#ifdef DEBUG          
+         assert(nCols == that.nCols());
+         assert(nRows == that.nRows());
+#endif
+
+         T* a0(this->data());
+         T const* b0(that.data());
+#pragma omp parallel for
+         for (unsigned j = 0; j < nCols; ++j) {
+             T* a(a0+j*lda);            
+             T const* b(b0+j*ldb);            
+
+             for (unsigned i = 0; i < nRows; ++i) {
+                 a[i] -= b[i];
+             }
+         }
+
+         return *this;
+      }
+
+
+      CMTile& scale(T const alpha)
+      {
+         T* a0(this->data());
+         size_t lda(this->m_leadingDim);
+
+#pragma omp parallel for
+         for (unsigned j = 0; j < this->m_nCols; ++j) {
+             T* a(a0+j*lda);            
+             for (unsigned i = 0; i < this->m_nRows; ++i) {
+                 a[i] *= alpha;
+             }
+         }
+
+         return *this;
       }
 
 
       // Not sure why these pass-throughs are necessary
       void fill(Functor<T> const& functor) { Tile<T>::fill(functor); }
+      void fill() { Tile<T>::fill(); }
 
 
       void info(const char* msg = 0, std::ostream& os = std::cout) const
@@ -119,12 +195,12 @@ class CMTile : public Tile<T>
 
       void copy(CMTile<T> const& that)
       {
-         size_t nRows(that.m_nRows());
-         size_t nCols(that.m_nCols());
+         std::cout << "Calling CMTile::copy" << std::endl;
+         size_t nRows(that.nRows());
+         size_t nCols(that.nCols());
 
          this->dealloc();
-         this->m_nRows = nRows;
-         this->m_nCols = nCols;
+         setRC(nRows,nCols);
 
          if (that.isBound()) {
             this->alloc();
