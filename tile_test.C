@@ -3,6 +3,7 @@
 #include "StripedTile.h"
 #include "CMTile.h"
 #include "Functor.h"
+#include "JacobiSolver.h"
 
 #include "TileArray.h"
 
@@ -25,12 +26,6 @@ void print_header(unsigned n, char const* header)
 int test_1()
 {
    print_header(1, "ZeroTile");
-
-   ZeroTile<int> ti(5,5);
-   ti.alloc(); 
-   ti.info();
-   ti.print();
-
 
    ZeroTile<double> td(10,10);
    td.alloc(); 
@@ -275,6 +270,41 @@ int test_8()
 }
 
 
+int test_9()
+{
+   print_header(9, "Jacobi Solver");
+
+   unsigned nBlocks(5);
+   unsigned blockDim(5);
+
+   TileArray<double> A(nBlocks,nBlocks);
+   TileArray<double> b(nBlocks,1);
+   TileArray<double> x(nBlocks,1);
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       b.set(row, 0, new CMTile<double>(blockDim,1));
+       x.set(row, 0, new CMTile<double>(blockDim,1));
+
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           // These are the dimensions of the current tile
+           A.set(row, col, new CMTile<double>(blockDim,blockDim));
+       }
+   }
+
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       b(row,0).fill(DebugFunctor());
+       x(row,0).fill(ZeroFunctor<double>());
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           A(row,col).fill(TestFunctor(A.rowOffset(row),A.rowOffset(col)));
+       }
+   }
+
+   jacobi_solver(A,b,x);
+
+   return 0;
+}
+
 
 int main()
 {
@@ -290,6 +320,7 @@ int main()
       + test_6()
       + test_7()
       + test_8()
+      + test_9()
    ;
 
    std::cout << std::endl;

@@ -37,6 +37,7 @@ double VMatrix<double,LAYOUT>::norm2() const
    return norm;
 }
 
+
 template<>
 double VMatrix<complex,LAYOUT>::norm2() const
 {

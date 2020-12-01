@@ -50,6 +50,12 @@ class CMTile : public Tile<T>
       }
 
 
+      void invert();
+
+
+      double norm2() const;
+
+
       void bind(T* data, size_t leadingDim = 0)
       {
          m_leadingDim = (leadingDim == 0) ? this->m_nRows : leadingDim;
@@ -229,6 +235,33 @@ void tile_product(CMTile<T> const& A, CMTile<T> const& B, T const c, CMTile<T>& 
 
 template <class T>
 void tile_product(StripedTile<T> const& A, CMTile<T> const& B, T const c, CMTile<T>& C);
+
+template <class T>
+void tile_product(Tile<T> const& A, Tile<T> const& B, T const alpha, Tile<T>& C)
+{
+   CMTile<T> const& b = dynamic_cast<CMTile<T> const&>(B);
+   CMTile<T>& c = dynamic_cast<CMTile<T>&>(C);
+
+   switch (A.storage()) {
+      case Zero: {
+         return;
+      } break;
+
+      case Striped: {
+         StripedTile<T> const& a = dynamic_cast<StripedTile<T> const&>(A);
+         tile_product(a, b, alpha, c);
+      } break;
+
+      case Dense: {
+         CMTile<T> const& a = dynamic_cast<CMTile<T> const&>(A);
+         tile_product(a, b, alpha, c);
+      } break;
+
+      default:
+        std::cerr << "ERROR: unimplemented tile_product" << std::endl;
+        break;
+   }
+}
 
 
 #endif

@@ -6,7 +6,7 @@ HEADERS = util.h Timer.h VMatrix.h BlockMatrix.h JacobiSolver.h Functor.h
 OBJECTS =  MatMult.o VMatrix.o BlockMatrix.o
 
 TILE_HEADERS = Tile.h ZeroTile.h DiagonalTile.h StripedTile.h CMTile.h RMTile.h
-TILE_OBJECTS = CMTile.o RMTile.o
+TILE_OBJECTS = CMTile.o RMTile.o Tile.o
 
 %.o : %.C %.h
 	$(CXX) -c $(LIBS) $(CXXFLAGS) $< -o $@

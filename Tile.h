@@ -240,6 +240,9 @@ class Tile
       }
 
 
+      virtual double norm2() const;
+
+
       virtual void info(const char* msg = 0, std::ostream& os = std::cout) const
       {
          if (msg) std::cout << msg << std::endl;

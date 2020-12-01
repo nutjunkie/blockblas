@@ -35,6 +35,12 @@ class ZeroTile : public Tile<T>
       }
 
 
+      double norm2() const
+      {
+         return 0.0;
+      }
+
+
    protected:
       void copy(Tile<T> const& that)
       {
