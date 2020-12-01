@@ -203,6 +203,31 @@ int test_6()
 }
 
 
+int test_7()
+{
+   print_header(7,"CMTile += DiagonalTile");
+
+   CMTile<double> A(8,12);
+   double a[120];
+   A.bind(a,10);
+   A.fill(DebugFunctor());
+
+   DiagonalTile<double> D(8,12);
+   D.fill(DebugFunctor());
+
+   A += D;
+   A.print("After adding diagonal");
+
+   CMTile<double> C(A);
+   A += C;
+   A.print("After adding C");
+
+   CMTile<double> B(10,12);
+   B.bind(a);
+   B.print("Buffer contents ");
+}
+
+
 
 
 int main()
@@ -217,6 +242,7 @@ int main()
       + test_4()
       + test_5()
       + test_6()
+      + test_7()
    ;
 
    std::cout << std::endl;

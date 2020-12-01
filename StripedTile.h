@@ -65,8 +65,8 @@ class StripedTile : public Tile<T>
    protected:
       void copy(StripedTile<T> const& that)
       {
-          m_stripes = that.stripes;
-          Tile<T>::copy(that);
+         m_stripes = that.m_stripes;
+         Tile<T>::copy(that);
       }
 
 
