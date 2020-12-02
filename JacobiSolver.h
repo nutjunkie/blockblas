@@ -7,7 +7,7 @@
 #include "MatMult.h"
 
 #include "CMTile.h"
-#include "TileArray.h"
+#include "CMTileArray.h"
 
 #define MAX_ITER      100
 
@@ -88,7 +88,7 @@ void jacobi_solver(TileArray<T> const& A, TileArray<T> const& b, TileArray<T>& x
    A.print("A matrix ---");
    b.print("b vector ---");
    x.print("x vector ---");
-   //
+
    // form the diagonal inverse matrices
    unsigned nTiles(A.nRowTiles());
    TileArray<T> Aii(nTiles, 1);
@@ -110,6 +110,7 @@ void jacobi_solver(TileArray<T> const& A, TileArray<T> const& b, TileArray<T>& x
    for (iter = 0; iter < MAX_ITER; ++iter) {
        work.fill();
        TileArray<T>::product_sans_diagonal(A, x, work);
+
        work.scale(-1.0);
        work += b;
 
@@ -120,7 +121,7 @@ void jacobi_solver(TileArray<T> const& A, TileArray<T> const& b, TileArray<T>& x
            tile_product(Aii(i), work(i), 0.0, x(i));
        }
 
-       work = lastx;
+       work  = lastx;
        work -= x;
 
        double res(0.0);

@@ -12,24 +12,22 @@
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
-#include "CMTile.h"
 #include "TileFactory.h"
 #include "Functor.h"
+#include "Log.h"
 
 
 template <class T>
 class TileArray
 {
    public:
+
       TileArray(size_t const nRowTiles, size_t const nColTiles) :
          m_nRowTiles(nRowTiles), m_nColTiles(nColTiles)
       {
          size_t nTiles(m_nRowTiles*m_nColTiles);
          m_tiles = new Tile<T>*[nTiles];
-
-         for (unsigned i = 0; i < nTiles; ++i) {
-             m_tiles[i] = new ZeroTile<T>();
-         }
+         memset(m_tiles, 0, nTiles*sizeof(Tile<T>*));
       }
 
 
@@ -58,19 +56,12 @@ class TileArray
       }
 
 
-      template <class U>
-      void from(TileArray<U> const& that)
-      {
-         std::cerr << "TileArray::from NYI" << std::endl;
-      } 
-
-      
       void set(unsigned const row, unsigned const col, Tile<T>* tile) 
       {
          unsigned idx(row + col*m_nRowTiles);
 
          if (idx < m_nRowTiles*m_nColTiles) {
-            delete m_tiles[idx];
+            if (m_tiles[idx]) delete m_tiles[idx];
             m_tiles[idx] = tile;
          }
       }
@@ -105,6 +96,7 @@ class TileArray
       }
 
 
+      template <class T>
       void addToDiag(T const t)
       {
          unsigned m(std::min(m_nColTiles, m_nRowTiles));
@@ -140,6 +132,7 @@ class TileArray
       }
 
 
+      template <class T>
       void fill(Functor<T>& functor) 
       {
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
@@ -159,18 +152,6 @@ class TileArray
          }
       }
 
-
-      void scale(T const t) 
-      {
-         for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
-             for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
-                 tile(bi,bj).scale(t);
-             }
-         }
-      }
-
-
-
       // This will blow up if the Tiles are not all dense
       void bind(T* data)
       {
@@ -181,10 +162,21 @@ class TileArray
 
               for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
                   CMTile<T>& cmt = dynamic_cast<CMTile<T>&>(tile(bi,bj));
-                  cmt.bind(d0,lda); 
+                  cmt.bind(d0,lda);
                   d0 += cmt.nRows();
              }
           }
+      }
+
+
+      template <class T>
+      void scale(T const t) 
+      {
+         for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
+             for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
+                 tile(bi,bj).scale(t);
+             }
+         }
       }
 
 
@@ -228,6 +220,12 @@ class TileArray
       {
          if (m_nRowTiles == 0 || m_nColTiles == 0) return true;
 
+         unsigned nTiles(m_nRowTiles*m_nColTiles);
+
+         for (unsigned i = 0; i < nTiles; ++i) {
+             if (m_tiles[i] == 0) return false;
+         }
+
          // Check row heights
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              unsigned n = tile(bi,0).nRows();
@@ -247,28 +245,6 @@ class TileArray
          }
 
          return true;
-      }
-
-
-      void toDense(CMTile<T>& vm) const
-      {
-         vm.resize(nRows(), nCols());
-         vm.alloc();
-
-         for (unsigned bi = 0; bi < nRowTiles(); ++bi) {
-             unsigned iOff(rowOffset(bi));
-             for (unsigned bj = 0; bj < nColTiles(); ++bj) {
-                 unsigned jOff(colOffset(bj));
-//               std::cout << "Tile("<< bi << "," << bj << ") with offset (" 
-//                         << iOff << "," << jOff << ")" << std::endl;
-                 Tile<T> const& m(tile(bi,bj));
-                 for (unsigned i = 0; i < m.nRows(); ++i) {
-                     for (unsigned j = 0; j < m.nCols(); ++j) {
-                         vm.set(iOff+i, jOff+j, m(i,j));
-                     }
-                 }
-             }
-         }
       }
 
 
@@ -294,54 +270,41 @@ class TileArray
       }
 
 
-      void info(const char* msg = 0) const
+      void info(const char* msg = 0, std::ostream& os = std::cout) const
       {
-         if (msg) {
-            std::cout << msg << std::endl;
-         }
-         std::cout << "Number of row blocks: :    " << nRowTiles() << std::endl;
-         std::cout << "Number of column blocks:   " << nColTiles() << std::endl;
-         std::cout << "Total number of rows:      " << nRows() << std::endl;
-         std::cout << "Total number of columns:   " << nCols() << std::endl;
-         std::cout << "TileArray is consistent: " << (consistent() ? "true" : "false") << std::endl;
-         std::cout << std::endl;
+         if (msg)  os << msg << std::endl;
 
-         std::cout << "Tile sizes:" << std::endl;
+         os << "Number of row blocks: :    " << nRowTiles() << std::endl;
+         os << "Number of column blocks:   " << nColTiles() << std::endl;
+         os << "Total number of rows:      " << nRows() << std::endl;
+         os << "Total number of columns:   " << nCols() << std::endl;
+         os << "TileArray is consistent: " << (consistent() ? "true" : "false") << std::endl;
+         os << std::endl;
+
+         os << "Tile sizes:" << std::endl;
          for (unsigned row = 0; row < m_nRowTiles; ++row) {
              for (unsigned col = 0; col < m_nColTiles; ++col) {
                  Tile<T> const& m(tile(row, col));
-                 std::cout << "(" << m.nRows() <<","<< m.nCols() << ")  ";
+                 os << "(" << m.nRows() <<","<< m.nCols() << ")  ";
              }   
-             std::cout << std::endl;
+             os << std::endl;
          } 
 
-         std::cout << std::endl;
-         std::cout << "Data arrangement:" << std::endl;
+         os << std::endl;
+         os << "Data arrangement:" << std::endl;
 
          for (unsigned row = 0; row < m_nRowTiles; ++row) {
              for (unsigned col = 0; col < m_nColTiles; ++col) {
-                 StorageT s(tile(row, col).storage());
-                 switch (s) {
-                    case Zero:     std::cout << '.';  break;
-                    case Diagonal: std::cout << '\\'; break;
-                    case Banded:   std::cout << 'b';  break;
-                    case Dense:    std::cout << 'X';  break;
-
-                    case Striped: {
-                       StripedTile<T> const& st = dynamic_cast<StripedTile<T> const&>(tile(row, col));
-                       unsigned n(st.stripes().size());
-                       std::cout << n;
-                    } break;
-                 }
-                 std::cout << "   ";
+                 Tile<T> const& m(tile(row, col));
+                 os << m.id() << "   ";
              }   
-             std::cout << std::endl;
+             os << std::endl;
          }
       }
 
-      void print(const char* msg = 0) const
+      void print(const char* msg = 0, std::ostream& os = std::cout) const
       {
-         if (msg) std::cout << msg << std::endl;
+         if (msg) os << msg << std::endl;
 
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              unsigned nr = tile(bi,0).nRows();
@@ -351,20 +314,21 @@ class TileArray
                      unsigned nc = m.nCols();
                      for (unsigned j = 0; j < nc; ++j) {
                          if (m(i,j) == 0) {
-                            std::cout << "    . ";
+                            os << "    . ";
                          }else {
-                            std::cout << std::setw(5) << m(i,j) << " ";
+                            os << std::setw(5) << m(i,j) << " ";
                          }
                      }
-                     std::cout << " ";
+                     os << " ";
                 }
-                std::cout << std::endl;
+                os << std::endl;
              }
-            std::cout << std::endl;
+            os << std::endl;
          }
       }
 
 
+      template <class T>
       static void product(TileArray<T> const& A, TileArray<T> const& B, TileArray<T>& C)
       {
          assert(A.nRowTiles() == C.nRowTiles());
@@ -383,6 +347,7 @@ class TileArray
       }
 
 
+      template <class T>
       static void product_sans_diagonal(TileArray<T> const& A, TileArray<T> const& B, TileArray<T>& C)
       {
          assert(A.nRowTiles() == C.nRowTiles());
@@ -405,10 +370,6 @@ class TileArray
       size_t m_nRowTiles;
       size_t m_nColTiles;
 
-      Tile<T>** m_tiles;
-       
-
-   private:
       void destroy()
       {
          if (m_tiles) {
@@ -423,6 +384,9 @@ class TileArray
       }
 
 
+   private:
+      Tile<T>** m_tiles;
+
       void copy(TileArray<T> const& that) 
       {
          destroy();
@@ -434,6 +398,7 @@ class TileArray
         for (unsigned col = 0; col < m_nColTiles; ++col) {
             for (unsigned row = 0; row < m_nRowTiles; ++row) {
                  m_tiles[row + col*m_nRowTiles] = TileFactory(that(row,col));
+                 Tile<T>* ptr = m_tiles[row + col*m_nRowTiles];
             }
          }
      }

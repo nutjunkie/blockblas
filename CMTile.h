@@ -20,6 +20,7 @@ class CMTile : public Tile<T>
          m_leadingDim = nRows;
       }
 
+
       CMTile(CMTile<T> const& that)
       {
          copy(that);
@@ -28,7 +29,7 @@ class CMTile : public Tile<T>
 
       StorageT storage() const
       {
-         return Dense;
+         return CMDense;
       }
 
 
@@ -38,15 +39,21 @@ class CMTile : public Tile<T>
       }
 
 
-      size_t leadingDim() const
+      size_t indexOf(size_t const i, size_t const j) const
       {
-         return m_leadingDim;
+         return (i + j*m_leadingDim);
       }
 
 
-      size_t indexOf(unsigned const i, unsigned const j) const
+      std::string id() const
       {
-         return (i + j*m_leadingDim);
+         return "X";
+      }
+
+
+      size_t leadingDim() const
+      {
+         return m_leadingDim;
       }
 
 
@@ -63,14 +70,54 @@ class CMTile : public Tile<T>
       }
 
 
+      Tile<T>& operator+=(Tile<T> const& that)
+      {   
+         switch (that.storage()) {
+            case Diagonal: {
+               DiagonalTile<T> const& t = dynamic_cast<DiagonalTile<T> const&>(that);
+               *this += t;
+            } break;
+               
+            case CMDense: {
+               CMTile<T> const& t = dynamic_cast<CMTile<T> const&>(that);
+               *this += t;
+            } break;
+
+            default:
+               Log::error("operator+= NYI for CMTile");
+               break;
+         }
+         return *this;
+      }   
+
+
+      Tile<T>& operator-=(Tile<T> const& that)
+      {   
+         switch (that.storage()) {
+            case Diagonal: {
+               DiagonalTile<T> const& t = dynamic_cast<DiagonalTile<T> const&>(that);
+               *this -= t;
+            } break;
+               
+            case CMDense: {
+               CMTile<T> const& t = dynamic_cast<CMTile<T> const&>(that);
+               *this -= t;
+            } break;
+
+            default:
+               Log::error("operator-= NYI for CMTile");
+               break;
+         }
+         return *this;
+      }  
+
+
       CMTile& operator+=(DiagonalTile<T> const& that)
       {
          size_t nRows(this->m_nRows);
          size_t nCols(this->m_nCols);
-#ifdef DEBUG          
          assert(nCols == that.nCols());
          assert(nRows == that.nRows());
-#endif
          unsigned m(std::min(nRows,nCols));
 
          T* a(this->data());
@@ -91,10 +138,8 @@ class CMTile : public Tile<T>
          size_t nCols(this->m_nCols);
          size_t lda(this->m_leadingDim);
          size_t ldb(that.leadingDim());
-#ifdef DEBUG          
          assert(nCols == that.nCols());
          assert(nRows == that.nRows());
-#endif
 
          T* a0(this->data());
          T const* b0(that.data());
@@ -116,11 +161,10 @@ class CMTile : public Tile<T>
       {
          size_t nRows(this->m_nRows);
          size_t nCols(this->m_nCols);
-#ifdef DEBUG          
+         size_t m(std::min(nRows,nCols));
+
          assert(nCols == that.nCols());
          assert(nRows == that.nRows());
-#endif
-         unsigned m(std::min(nRows,nCols));
 
          T* a(this->data());
          T const* b(that.data());
@@ -140,10 +184,9 @@ class CMTile : public Tile<T>
          size_t nCols(this->m_nCols);
          size_t lda(this->m_leadingDim);
          size_t ldb(that.leadingDim());
-#ifdef DEBUG          
+
          assert(nCols == that.nCols());
          assert(nRows == that.nRows());
-#endif
 
          T* a0(this->data());
          T const* b0(that.data());
@@ -161,7 +204,7 @@ class CMTile : public Tile<T>
       }
 
 
-      CMTile& scale(T const alpha)
+      Tile<T>& scale(T const alpha)
       {
          T* a0(this->data());
          size_t lda(this->m_leadingDim);
@@ -178,20 +221,41 @@ class CMTile : public Tile<T>
       }
 
 
-      // Not sure why these pass-throughs are necessary
-      void fill(Functor<T> const& functor) { Tile<T>::fill(functor); }
-      void fill() { Tile<T>::fill(); }
-
-
       void info(const char* msg = 0, std::ostream& os = std::cout) const
       {
          Tile<T>::info(msg,os);
          std::cout << "Leading Dim: " << m_leadingDim <<  std::endl;
       }
 
+/*
+      template <class T>
+      void toDense(CMTile<T>& vm) const
+      {
+         vm.resize(nRows(), nCols());
+         vm.alloc();
+
+         for (unsigned bi = 0; bi < nRowTiles(); ++bi) {
+             unsigned iOff(rowOffset(bi));
+             for (unsigned bj = 0; bj < nColTiles(); ++bj) {
+                 unsigned jOff(colOffset(bj));
+//               std::cout << "Tile("<< bi << "," << bj << ") with offset (" 
+//                         << iOff << "," << jOff << ")" << std::endl;
+                 U const& m(tile(bi,bj));
+                 for (unsigned i = 0; i < m.nRows(); ++i) {
+                     for (unsigned j = 0; j < m.nCols(); ++j) {
+                         vm.set(iOff+i, jOff+j, m(i,j));
+                     }
+                 }
+             }
+         }
+      }
+*/
+
+
+
 
    protected:
-      void setRC(size_t nRows, size_t nCols)
+      void resize(size_t nRows, size_t nCols)
       {
           this->m_nRows = nRows;
           this->m_nCols = nCols;
@@ -199,14 +263,31 @@ class CMTile : public Tile<T>
       }
 
 
+      void copy(Tile<T> const& that)
+      {
+         switch (that.storage()) {
+            case CMDense: {
+               CMTile<T> const& t = dynamic_cast<CMTile<T> const&>(that);
+               copy(t);
+            }
+               break;
+
+            default:
+               std::string s("CMTile::copy called with unimplemnted type: ");
+               s += toString(storage());
+               Log::error(s);
+               break;
+         }
+      }
+
+
       void copy(CMTile<T> const& that)
       {
-         std::cout << "Calling CMTile::copy" << std::endl;
          size_t nRows(that.nRows());
          size_t nCols(that.nCols());
 
          this->dealloc();
-         setRC(nRows,nCols);
+         resize(nRows,nCols);
 
          if (that.isBound()) {
             this->alloc();
@@ -228,40 +309,5 @@ class CMTile : public Tile<T>
     private:
        size_t m_leadingDim;
 };
-
-
-template <class T>
-void tile_product(CMTile<T> const& A, CMTile<T> const& B, T const c, CMTile<T>& C);
-
-template <class T>
-void tile_product(StripedTile<T> const& A, CMTile<T> const& B, T const c, CMTile<T>& C);
-
-template <class T>
-void tile_product(Tile<T> const& A, Tile<T> const& B, T const alpha, Tile<T>& C)
-{
-   CMTile<T> const& b = dynamic_cast<CMTile<T> const&>(B);
-   CMTile<T>& c = dynamic_cast<CMTile<T>&>(C);
-
-   switch (A.storage()) {
-      case Zero: {
-         return;
-      } break;
-
-      case Striped: {
-         StripedTile<T> const& a = dynamic_cast<StripedTile<T> const&>(A);
-         tile_product(a, b, alpha, c);
-      } break;
-
-      case Dense: {
-         CMTile<T> const& a = dynamic_cast<CMTile<T> const&>(A);
-         tile_product(a, b, alpha, c);
-      } break;
-
-      default:
-        std::cerr << "ERROR: unimplemented tile_product" << std::endl;
-        break;
-   }
-}
-
 
 #endif

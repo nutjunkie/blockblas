@@ -6,7 +6,7 @@ HEADERS = util.h Timer.h VMatrix.h BlockMatrix.h JacobiSolver.h Functor.h
 OBJECTS =  MatMult.o VMatrix.o BlockMatrix.o
 
 TILE_HEADERS = Tile.h ZeroTile.h DiagonalTile.h StripedTile.h CMTile.h RMTile.h
-TILE_OBJECTS = CMTile.o RMTile.o Tile.o
+TILE_OBJECTS = RMTile.o Tile.o VMatrix.o CMTile.o TileProduct.o
 
 %.o : %.C %.h
 	$(CXX) -c $(LIBS) $(CXXFLAGS) $< -o $@
@@ -30,7 +30,7 @@ blas: blas.o $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o blas $(LIBS) $(OBJECTS) blas.o
 
 clean:
-	rm -f $(OBJECTS) test.o test timing.o timing blas.o blas
+	rm -f $(OBJECTS) $(TILE_OBJECTS) test.o test timing.o timing blas.o blas
 
 VMatrix.o: VMatrix_templateT.cpp VMatrix_templateL.cpp
 

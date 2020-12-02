@@ -18,18 +18,19 @@ typedef std::complex<double> complex;
 
 #include <string>
 
-enum StorageT { Zero, Diagonal, Banded, Striped, Dense };
+enum StorageT { Zero, Diagonal, Banded, Striped, CMDense, RMDense, Dense }; 
 enum LayoutT { RowMajor, ColumnMajor };
 
 inline std::string toString(StorageT storage)
 {
    std::string s;
    switch (storage) {
-      case Zero:      s = "Zero";      break;
-      case Diagonal:  s = "Diagonal";  break;
-      case Banded:    s = "Banded";    break;
-      case Striped:   s = "Striped";   break;
-      case Dense:     s = "Dense";     break;
+      case Zero:      s = "Zero";        break;
+      case Diagonal:  s = "Diagonal";    break;
+      case Banded:    s = "Banded";      break;
+      case Striped:   s = "Striped";     break;
+      case CMDense:   s = "Dense (CM)";  break;
+      case RMDense:   s = "Dense (RM)";  break;
    }
 
    return s;

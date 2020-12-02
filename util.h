@@ -9,6 +9,21 @@
 #include "BlockMatrix.h"
 
 
+namespace Log
+{
+   void warn(std::string const& msg) 
+   {
+      std::cerr << "Warning: " << msg << std::endl;
+   }
+
+   void error(std::string const& msg) 
+   {
+      std::cerr << "ERROR: " << msg << std::endl;
+   }
+
+}
+
+
 bool zeroTest(unsigned i, unsigned j)
 {  
    // diagonal

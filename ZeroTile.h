@@ -17,6 +17,12 @@ class ZeroTile : public Tile<T>
       { }
 
 
+      ZeroTile(ZeroTile const& that)
+      {
+         copy(that);
+      }
+
+
       StorageT storage() const
       {
          return Zero;
@@ -29,7 +35,7 @@ class ZeroTile : public Tile<T>
       }
 
 
-      size_t indexOf(unsigned const i, unsigned const j) const
+      size_t indexOf(size_t const i, size_t const j) const
       {
          return 0;
       }
@@ -41,15 +47,36 @@ class ZeroTile : public Tile<T>
       }
 
 
+      std::string id() const 
+      {
+          return ".";
+      }
+
+
+      Tile<T>& operator+=(Tile<T> const& that)
+      {
+         Log::error("operator+= NYI for ZeroTile");
+         return *this;
+      }
+
+
+      Tile<T>& operator-=(Tile<T> const& that)
+      {
+         Log::error("operator-= NYI for ZeroTile");
+         return *this;
+      }
+
+
+      Tile<T>& scale(T const t)
+      {
+         return *this;
+      }
+
+
    protected:
       void copy(Tile<T> const& that)
       {
-         size_t nRows(that.nRows());
-         size_t nCols(that.nCols());
-
-         this->dealloc();
-         this->m_nRows = nRows;
-         this->m_nCols = nCols;
+         resize(that.nRows(), that.nCols());
 
          if (that.isBound()) {
             this->alloc();

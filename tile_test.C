@@ -1,25 +1,14 @@
+#include "util.h"
 #include "ZeroTile.h"
 #include "DiagonalTile.h"
 #include "StripedTile.h"
 #include "CMTile.h"
-#include "Functor.h"
-#include "JacobiSolver.h"
-
+#include "TileProduct.h"
 #include "TileArray.h"
 
 
+#include "JacobiSolver.h"
 
-void print_header(unsigned n, char const* header)
-{
-   std::string s(" test_");
-   s += std::to_string(n) + ": " + std::string(header);
-
-   unsigned len(s.length());
-   std::cout << std::string(len+1, '=') << std::endl;
-   std::cout << s << std::endl;
-   std::cout << std::string(len+1, '=') << std::endl;
-   
-}
 
 
 
@@ -49,12 +38,13 @@ int test_2()
    
    DiagonalTile<double> t(5,6);
    t.info();
+   std::cout << "Trigger a warning on an unbound tile:" << std::endl;
    t.print();
 
    t.alloc();
    t.fill(f);
-   t.print("After binding");
    t.info();
+   t.print("After binding");
 
    return 0;
 }
@@ -68,16 +58,17 @@ int test_3()
    DebugFunctor df;
    StencilFunctor sf;
 
-   std::vector<int> stripes = {-1,1};
-   
+   std::vector<int> stripes = {-1,1,4};
    StripedTile<double> t(5,6,stripes);
-   t.info();
-   t.print();
 
-   t.alloc();
-   t.fill(df);
-   t.print("After binding");
+   t.alloc().fill(df);
    t.info();
+   t.print("After binding");
+
+   CMTile<complex> Z;
+   Z.from(t);
+   Z.info();
+   Z.print("Converted t to complex");
 
    return 0;
 }
@@ -90,23 +81,23 @@ int test_4()
    DebugFunctor df;
    StencilFunctor sf;
 
-/*
    CMTile<double> t(5,6);
-   t.alloc();
-   t.fill(df);
+   t.alloc().fill(df);
 
    {
       CMTile<double> s(5,6);
       s.bind(t.data());
       s.info();
-      s.set(1,1,100.0);
+      s.set(1,1,10.0);
       s.print("S before going out of scope");
-      double* t = s.release();
-      std::cout << "release = " << t << std::endl;
       s.dealloc();
    }
-   t.print("After binding");
-*/
+   t.print("After modification via s");
+
+
+   double m_[] = { 1.01, 2.01, 3.01, 0.00, 0.00, 1.02, 2.02, 3.02, 0.00,
+			       0.00, 1.03, 2.03, 3.03, 0.00, 0.00, 0.00, 0.00, 0.00,
+				   0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00};
 
    double m[25];
 
@@ -118,14 +109,14 @@ int test_4()
    u.bind(m,5);   
    u.info();
    u.fill(df);
-   u.print("u from array");
+   u.print("u (3x3) from array");
 
    v.info();   
-   v.print("v from array");
+   v.print("v (5x5) from array");
 
 
    for (int i = 0; i < 25; ++i) {
-       std::cout << "m[" << i << "] = " << m[i] << std::endl;
+       if (std::abs(m[i]-m_[i]) > 1e-8) return 1;
    }
 
    return 0;
@@ -161,11 +152,34 @@ int test_5()
    tile_product(A,B,0.0,C);
    C.print("Product Matrix C");
 
+   double c_[] = { 
+        21.972100, 43.032100, 64.092100, 85.152100, 106.21210, 127.27210, 
+        148.33210, 169.39210, 190.45210, 211.51210, 22.034200, 43.154200, 
+        64.274200, 85.394200, 106.51420, 127.63420, 148.75420, 169.87420, 
+        190.99420, 212.11420, 22.096300, 43.276300, 64.456300, 85.636300, 
+        106.81630, 127.99630, 149.17630, 170.35630, 191.53630, 
+        212.71630, 22.158400, 43.398400, 64.638400, 85.878400, 107.11840, 
+        128.35840, 149.59840, 170.83840, 192.07840, 213.31840, 22.220500, 
+        43.520500, 64.820500, 86.120500, 107.42050, 128.72050, 150.02050, 
+        171.32050, 192.62050, 213.92050, 22.282600, 43.642600, 65.002600, 
+        86.362600, 107.72260, 129.08260, 150.44260, 171.80260, 193.16260, 
+        214.52260, 22.344700, 43.764700, 65.184700, 86.604700, 108.02470, 
+        129.44470, 150.86470, 172.28470, 193.70470, 215.12470, 22.406800, 
+        43.886800, 65.366800, 86.846800, 108.32680, 129.80680, 151.28680, 
+        172.76680, 194.24680, 215.72680};
+
    for (int i = 0; i < n; ++i) {
-       std::cout << "bufs[" << i << "]:  " << a[i] << "  " << b[i] << "  " << c[i] << std::endl;
+       if (std::abs(c[i]-c_[i]) > 1e-8) {
+          std::cout << i << ": " << std::defaultfloat << std::abs(c[i]-c_[i]) 
+                    << " -> " << std::defaultfloat << c[i] << "  " << std::defaultfloat<< c_[i] << std::endl;
+          std::cout << "FAILED" << std::endl;
+          return 1;
+       }
    }
 
+   return 0;
 }
+
 
 
 int test_6()
@@ -181,22 +195,23 @@ int test_6()
    C.fill();
 
    A.print("Matrix A");
-   CMTile<complex> Z;
-   Z.info();
-   Z.from(A);
-   Z.info();
-   Z.print("Converted A -> Z");
-
    B.print("Matrix B");
 
    tile_product(A,B,0.0,C);
    C.print("Product Matrix C");
 
    CMTile<double> D(10,6);
+   CMTile<double> Cc(C);
 
    D.from(A);
-   tile_product(D,B,0.0,C);
-   C.print("Product Matrix C A->D");
+   tile_product(D,B,0.0,Cc);
+   C -= Cc;
+   if (std::abs(C.norm2()) > 1e-8) {
+      std::cout << "FAILED: norm2 =" << C.norm2() << std::endl;
+      return 1;
+   }
+
+   return 0;
 }
 
 
@@ -258,15 +273,16 @@ int test_8()
    TA.print("bound TileArray from data");
 
    TileArray<double> TB(TA);
+   TB.info();
    TB.print("TileArray from copy");
 
    TA += TB;
 
    TA.print("TileArray after add ");
-   std::cout << "Printing array:" << std::endl;
-   for (unsigned i = 0; i < 200; ++i) {
-       std::cout << "m[" << i << "] = " << m[i] << std::endl;
-   }
+   //std::cout << "Printing array:" << std::endl;
+   //for (unsigned i = 0; i < 200; ++i) {
+   //    std::cout << "m[" << i << "] = " << m[i] << std::endl;
+   //}
 }
 
 
