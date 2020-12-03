@@ -195,7 +195,7 @@ class Tile
             }   
             os << std::endl;
          }else {
-            Log::warn("Print called on unbound Tile");
+            os << "Print called on unbound Tile";
          }
       }
 

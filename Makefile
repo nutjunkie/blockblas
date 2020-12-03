@@ -3,10 +3,13 @@ CXXFLAGS = -std=c++11 -g -pg  -O2 -fopenmp -funroll-loops -ffast-math
 LIBS = -mkl
 
 HEADERS = util.h Timer.h VMatrix.h BlockMatrix.h JacobiSolver.h Functor.h
-OBJECTS =  MatMult.o VMatrix.o BlockMatrix.o
+OBJECTS = MatMult.o VMatrix.o BlockMatrix.o
 
-TILE_HEADERS = Tile.h ZeroTile.h DiagonalTile.h StripedTile.h CMTile.h RMTile.h
-TILE_OBJECTS = RMTile.o Tile.o VMatrix.o CMTile.o TileProduct.o
+TILE_HEADERS = Tile.h ZeroTile.h DiagonalTile.h StripedTile.h CMTile.h util.h \
+               JacobiSolver.h
+TILE_OBJECTS = Tile.o VMatrix.o CMTile.o TileProduct.o JacobiSolver.o
+
+
 
 %.o : %.C %.h
 	$(CXX) -c $(LIBS) $(CXXFLAGS) $< -o $@

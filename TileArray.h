@@ -2,8 +2,8 @@
 #define TILEARRAY_H
 /******************************************************************************
  * 
- *  Class declarations for managing arrays of Tiles.  The interface is desiged
- *  to homogenize the handling of both dense, banded and zero Tiles.
+ *  Class for managing arrays of Tiles (i.e. a block matrix).  The interface 
+ *  is desiged to homogenize the handling of both dense, banded and zero Tiles.
  * 
  *****************************************************************************/
 
@@ -14,7 +14,6 @@
 #include <iomanip>
 #include "TileFactory.h"
 #include "Functor.h"
-#include "Log.h"
 
 
 template <class T>
@@ -328,47 +327,11 @@ class TileArray
       }
 
 
-      template <class T>
-      static void product(TileArray<T> const& A, TileArray<T> const& B, TileArray<T>& C)
-      {
-         assert(A.nRowTiles() == C.nRowTiles());
-         assert(A.nColTiles() == B.nRowTiles());
-         assert(B.nColTiles() == C.nColTiles());
-//#pragma omp parallel for
-         for (unsigned bi = 0; bi < A.nRowTiles(); ++bi) {
-             for (unsigned bj = 0; bj < B.nColTiles(); ++bj) {
-                 for (unsigned k = 0; k < A.nColTiles(); ++k) {
-//                 std::cout << "Multiplying block: C(" << bi << "," << bj << ") <- A(" 
-//                           << bi << "," << k << ") x B(" << k << "," << bj << ")" << std::endl;
-                     tile_product(A(bi,k), B(k,bj), 1.0, C(bi,bj));
-                 }
-             }
-         }
-      }
-
-
-      template <class T>
-      static void product_sans_diagonal(TileArray<T> const& A, TileArray<T> const& B, TileArray<T>& C)
-      {
-         assert(A.nRowTiles() == C.nRowTiles());
-         assert(A.nColTiles() == B.nRowTiles());
-         assert(B.nColTiles() == C.nColTiles());
-//#pragma omp parallel for
-         for (unsigned bi = 0; bi < A.nRowTiles(); ++bi) {
-             for (unsigned bj = 0; bj < B.nColTiles(); ++bj) {
-                 for (unsigned k = 0; k < A.nColTiles(); ++k) {
-                     if (bi != k ) {
-                        tile_product(A(bi,k), B(k,bj), 1.0, C(bi,bj));
-                    }
-                 }
-             }
-         }
-      }
-
-
-   protected:
+   private:
       size_t m_nRowTiles;
       size_t m_nColTiles;
+      Tile<T>** m_tiles;
+
 
       void destroy()
       {
@@ -383,9 +346,6 @@ class TileArray
          m_tiles = 0;
       }
 
-
-   private:
-      Tile<T>** m_tiles;
 
       void copy(TileArray<T> const& that) 
       {

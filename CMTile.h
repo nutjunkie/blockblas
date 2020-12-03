@@ -59,6 +59,8 @@ class CMTile : public Tile<T>
 
       void invert();
 
+      void factorLU(int*);
+
 
       double norm2() const;
 

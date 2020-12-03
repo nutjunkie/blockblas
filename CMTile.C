@@ -30,8 +30,8 @@ void CMTile<double>::invert()
     dgetri_(&n,   this->m_data,&lda,ipiv,work,&lwork,&info);
 #endif
 
-    delete ipiv;
-    delete work;
+    delete [] ipiv;
+    delete [] work;
 }
 
 
@@ -64,9 +64,35 @@ void CMTile<complex>::invert()
    zgetri_(&n,   this->m_data,&lda,ipiv,work,&lwork,&info);
 #endif
 
-   delete ipiv;
-   delete work;
+   delete [] ipiv;
+   delete [] work;
 }
+
+
+
+template <>
+void CMTile<double>::factorLU(int* ipiv)
+{
+   int nRows(this->m_nRows);
+   int nCols(this->m_nCols);
+   int lda(this->m_leadingDim);
+
+    if (nRows != nCols || !this->isBound()) {
+       std::stringstream ss("factorLU() called on invalid Tile (");
+       ss << nRows << "," << nCols << ") -> " << this->storage();
+       Log::error(ss.str());
+       return;
+    }   
+
+    int info = LAPACKE_dsytrf(LAPACK_COL_MAJOR, 'U', nRows, this->m_data, lda, ipiv);
+    if (info != 0) {
+       std::string s("Bad return from dsytrf: ");
+       s += std::to_string(info);
+       Log::error(s);
+    }
+
+}
+
 
 
 template <>

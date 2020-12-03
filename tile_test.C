@@ -292,17 +292,17 @@ int test_9()
 
    unsigned nBlocks(5);
    unsigned blockDim(5);
+   unsigned nEigen(3);
 
    TileArray<double> A(nBlocks,nBlocks);
    TileArray<double> b(nBlocks,1);
    TileArray<double> x(nBlocks,1);
 
    for (unsigned row = 0; row < nBlocks; ++row) {
-       b.set(row, 0, new CMTile<double>(blockDim,1));
-       x.set(row, 0, new CMTile<double>(blockDim,1));
+       b.set(row, 0, new CMTile<double>(blockDim,nEigen));
+       x.set(row, 0, new CMTile<double>(blockDim,nEigen));
 
        for (unsigned col = 0; col < nBlocks; ++col) {
-           // These are the dimensions of the current tile
            A.set(row, col, new CMTile<double>(blockDim,blockDim));
        }
    }
@@ -316,10 +316,77 @@ int test_9()
        }
    }
 
-   jacobi_solver(A,b,x);
+
+   for (unsigned ev = 0; ev < nEigen; ++ev) {
+       x(0,0).set(ev,ev,1.0);
+   }
+
+   int rc = jacobi_solverLU(A,x,b);
+
+   if (rc < 0) {
+      std::cout << "ERROR: JacobiSolver failed to  converged in " << -rc << " cycles" << std::endl;
+   }else {
+      TileArray<double> result(x);
+      result.fill();
+      product(A, x, result);
+      result -= b;
+      result.print("Residual vector(s)");
+   }
 
    return 0;
 }
+
+
+int test_10()
+{
+   print_header(10, "Complex Jacobi Solver");
+
+   unsigned nBlocks(5);
+   unsigned blockDim(5);
+   unsigned nEigen(3);
+
+   TileArray<double> A(nBlocks,nBlocks);
+   TileArray<double> b(nBlocks,1);
+   TileArray<double> x(nBlocks,1);
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       b.set(row, 0, new CMTile<double>(blockDim,nEigen));
+       x.set(row, 0, new CMTile<double>(blockDim,nEigen));
+
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           A.set(row, col, new CMTile<double>(blockDim,blockDim));
+       }
+   }
+
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       b(row,0).fill(DebugFunctor());
+       x(row,0).fill(ZeroFunctor<double>());
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           A(row,col).fill(TestFunctor(A.rowOffset(row),A.rowOffset(col)));
+       }
+   }
+
+
+   for (unsigned ev = 0; ev < nEigen; ++ev) {
+       x(0,0).set(ev,ev,1.0);
+   }
+
+   int rc = jacobi_solverLU(A,x,b);
+
+   if (rc < 0) {
+      std::cout << "ERROR: JacobiSolver failed to  converged in " << -rc << " cycles" << std::endl;
+   }else {
+      TileArray<double> result(x);
+      result.fill();
+      product(A, x, result);
+      result -= b;
+      result.print("Residual vector(s)");
+   }
+
+   return 0;
+}
+
 
 
 int main()
