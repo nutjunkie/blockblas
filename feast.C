@@ -32,8 +32,12 @@
 !
 !*******************************************************************************/
 
-#include "BlockMatrix.h"
+#include "TileArray.h"
 #include "JacobiSolver.h"
+#include "ConjugateSolver.h"
+#include "TileProduct.h"
+#include "EigenSolver.h"
+#include "Timer.h"
 #include "util.h"
 
 #include <stdio.h>
@@ -43,94 +47,119 @@
 #include "mkl.h"
 
 #include <iostream>
+#include <fstream>
 #include <iomanip>
+#include <vector>
 
 #define max(a, b) (a) < (b) ? (b): (a)
 
 
 
-int diagonalize(BlockMatrix<double,ColumnMajor>&, unsigned const subspace, const double Emin, const double Emax);
+int diagonalize(TileArray<double>&, unsigned const subspace, const double Emin, const double Emax);
 int sample();
+int stephen();
+
+std::vector<double> readFile(std::string const& filename)
+{
+
+   std::vector<double> mat;
+   std::ifstream ifs(filename.c_str(), std::ios::in);
+   if (!ifs.is_open()) {
+      std::cerr << "Failed to open flie " << filename << std::endl;
+      return mat;
+   }
+
+   double x;
+   while (ifs >> x) { mat.push_back(x); }
+
+   ifs.close();
+
+   return mat;
+}
 
 
+
+bool run_sample  = false;
+bool run_stephen = true;
 
 int main()
 {
-    //return sample();
+    if (run_sample) return sample();
+    if (run_stephen) return stephen();
 
     int rv(0);
-    unsigned const matsize(21);
-    unsigned const subspace(12);
-
+    unsigned const nBlocks(1);
+    unsigned const blockSize(21);
+    unsigned const matsize(nBlocks*blockSize);
+    unsigned const subspace(8);
+    
     std::vector<int> stripes{-3,-2,-1,0,1,2,3};
-    VMatrix<double,ColumnMajor> A;
-    A.init(matsize,matsize, stripes).bind(StencilFunctor());
 
-    //A.print("A Matrix");
 
-    double const Emin(3.0);
-    double const Emax(7.0);
 
-/*
-3.281006155809338e+00  
-3.748218449858668e+00  
-3.999999999999995e+00  
-4.066356277696118e+00  
-4.080328529416478e+00  
-4.118518665924904e+00  
-4.317259451657928e+00  
-4.831631349313360e+00  
-5.691236169535556e+00  
-6.903393220247046e+00
 
-{15.7014, 14.8414, 13.5213, 11.8924, 10.1325, 8.41899, 6.90339, \
-5.69124, 4.83163, 4.31726, 4.11852, 4.08033, 4.06636, 4., 3.74822, \
-3.28101, 2.64571, 1.91402, 1.18425, 0.563342, 0.146687}
-*/
+        // Striped test matrix
+        StripedTile<double> A(matsize,matsize, stripes);
+        A.fill(StencilFunctor<double>(0.1));
+        //A.fill(TestFunctor());
 
-    BlockMatrix<double,ColumnMajor> bA(1,1);
-    for (unsigned bi = 0; bi < bA.nRowBlocks(); ++bi) {
-        for (unsigned bj = 0; bj < bA.nColBlocks(); ++bj) {
-            bA(bi,bj).init(21,21);
+        A.info("A Matrix");
+        A.print("A Matrix");
+
+    
+        TileArray<double> bA(nBlocks,nBlocks);
+        for (unsigned bi = 0; bi < bA.nRowTiles(); ++bi) {
+            for (unsigned bj = 0; bj < bA.nColTiles(); ++bj) {
+                bA.set(bi,bj, new CMTile<double>(blockSize,blockSize));
+            }
+        }
+
+        CMTile<double> dense(A);
+        bA.bind(dense.data());
+
+
+    TileArray<double> bB(nBlocks,nBlocks);
+    for (unsigned bi = 0; bi < bB.nRowTiles(); ++bi) {
+        for (unsigned bj = 0; bj < bB.nColTiles(); ++bj) {
+            if (bi == bj) {
+               bB.set(bi,bj, new CMTile<double>(blockSize,blockSize));
+               bB(bi,bj).fill(TestFunctor());
+               bB(bi,bj).scale(1.0/(bi+bj+1));
+            }else {
+               //bB.set(bi,bj, new StripedTile<double>(blockSize,blockSize,stripes));
+               //bB(bi,bj).fill(StencilFunctor<double>(0.1));
+               bB.set(bi,bj, new ZeroTile<double>(blockSize,blockSize));
+               bB(bi,bj).fill0();
+            }
         }
     }
 
-    BlockMatrix<double,ColumnMajor> bB(3,3);
-    for (unsigned bi = 0; bi < bB.nRowBlocks(); ++bi) {
-        for (unsigned bj = 0; bj < bB.nColBlocks(); ++bj) {
-            bB(bi,bj).init(7,7);
-        }
-    }
+   // bB.print("bB Matrix");
 
-    A.toDense();
-/*
-    double* AA = A.data();
-    int k(0);
+    double const Emin(5.00);
+    double const Emax(5.5);
 
-    for (int i = 0; i < matsize; ++i) {
-       for (int j = 0; j < matsize; ++j, ++k) {
-           std::cout << AA[k] <<std::endl;
-       }
-    }
-
-    return 0;
-*/
-
-    bA.bind(A.data());
-    bA.info();
-    bA.print();
-
-    bB.bind(A.data());
+    Timer timer;
     bB.info();
-    bB.print();
 
-    rv = diagonalize(bB, subspace, Emin, Emax);
+    timer.start();
+    eigenvalues(bA);
+    timer.stop();
+    std::cout << "LAPACK time: " << timer.format() << std::endl;
+
+
+    timer.start();
+    rv = diagonalize(bA, subspace, Emin, Emax);
+    timer.stop();
+
+    std::cout << "FEAST time: " << timer.format() << std::endl;
+
     return rv;
 }
 
 
 
-int diagonalize(BlockMatrix<double,ColumnMajor>& A, unsigned const subspace, const double Emin, const double Emax)
+int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin, const double Emax)
 {
     const MKL_INT N = A.nCols();
 
@@ -142,6 +171,8 @@ int diagonalize(BlockMatrix<double,ColumnMajor>& A, unsigned const subspace, con
     double* Sq   = new double[subspace*subspace];
 
     complex* workc = new complex[N*subspace];
+
+    std::cout << "Subspace size: " << subspace << std::endl;
     
     double  epsout(0.0);
     MKL_Complex16 Ze;
@@ -159,119 +190,117 @@ int diagonalize(BlockMatrix<double,ColumnMajor>& A, unsigned const subspace, con
 
     while ( ijob != 0 )
     {
-     //  dfeast_srci(&ijob,&N,&Ze,work,workc,Aq,Sq,fpm,&epsout,&loop,&Emin,&Emax,&M0,E,X,&M,res,&info);
-     //
-     //  void dfeast_srci (
-     //   - MKL_INT* ijob,        job indicator
-     //   - const MKL_INT* n,     the size of the problem
-     //     MKL_Complex16* ze,    the coordinate of the complex countour
-     //   - double* work,         workspace dimension n by m0
-     //   - MKL_Complex16* workc, workspace dimension n by m0
-     //   - double* aq,           workspace dimension m0 by m0
-     //   - double* sq,           workspace dimension m0 by m0
-     //   - MKL_INT* fpm,         parameters
-     //     double* epsout,       relative error
-     //     MKL_INT* loop,        number of refinement loops executed
-     //   - const double* emin,   lower bound for interval
-     //   - const double* emax,   upper rbound for interval
-     //   - MKL_INT* m0,          guess for subspace dimension
-     //     double* lambda,       eigenvalues
-     //   - double* q,            n x m basis for subspace
-     //     MKL_INT* m,           number of eigenvalues found in interval
-     //     double* res,          relative residual vectors
-     //     MKL_INT* info         output
-     //   );
+        //  dfeast_srci(&ijob,&N,&Ze,work,workc,Aq,Sq,fpm,&epsout,&loop,&Emin,&Emax,&M0,E,X,&M,res,&info);
+        //
+        //  void dfeast_srci (
+        //   - MKL_INT* ijob,        job indicator
+        //   - const MKL_INT* n,     the size of the problem
+        //     MKL_Complex16* ze,    the coordinate of the complex countour
+        //   - double* work,         workspace dimension n by m0
+        //   - MKL_Complex16* workc, workspace dimension n by m0
+        //   - double* aq,           workspace dimension m0 by m0
+        //   - double* sq,           workspace dimension m0 by m0
+        //   - MKL_INT* fpm,         parameters
+        //     double* epsout,       relative error
+        //     MKL_INT* loop,        number of refinement loops executed
+        //   - const double* emin,   lower bound for interval
+        //   - const double* emax,   upper rbound for interval
+        //   - MKL_INT* m0,          guess for subspace dimension
+        //     double* lambda,       eigenvalues
+        //   - double* q,            n x m basis for subspace
+        //     MKL_INT* m,           number of eigenvalues found in interval
+        //     double* res,          relative residual vectors
+        //     MKL_INT* info         output
+        //   );
 
         dfeast_srci(&ijob,&N,&Ze,work,workc,Aq,Sq,fpm,&epsout,&loop,&Emin,&Emax,&M0,E,X,&M,res,&info);
-        if ( info != 0 )
-        {
+
+        if ( info != 0 ) {
             printf("DFEAST_SRCI info %i \n", info);
             return 1;
         }
+
         switch ( ijob )
         {
             case -2:
-                // New loop
-                break;
+               // New loop
+               break;
             case 0:
-                // End
-                break;
+               // End
+               break;
             case 10:
-                // Preconditioner, we can do nothing here
-                break;
+               // Preconditioner, we do nothing here
+               break;
             case 11: {
-                std::cout<< std::setprecision(7);
+               std::cout<< std::setprecision(7);
 
-//             std::cout << "Complex root: "<< Ze << std::endl;
+               std::cout << "Complex root: "<< Ze << std::endl;
 //             std::cout << "Num RHS:      "<< fpm[23-1] << std::endl;
 //             zC = Ze * zB + zA
-
-
-
-               BlockMatrix<complex,ColumnMajor> bmAc(A.nRowBlocks(), A.nColBlocks());
-               bmAc.fromDouble(A);
-               -bmAc;
-               bmAc += Ze;   // overloaded operator only adjusts the diagonal
-
-               unsigned nBlocks(std::min(bmAc.nRowBlocks(), bmAc.nColBlocks() ));
-               for (unsigned bi = 0; bi < nBlocks; ++bi) {
-                   bmAc(bi,bi).toDense();
-               }
-
-
-               BlockMatrix<complex,ColumnMajor> bmBc(nBlocks,1);
-               for (unsigned bi = 0; bi < nBlocks; ++bi) {
-                   bmBc(bi,0).init(bmAc(bi,0).nRows(),M0);
-               }
-               bmBc.bind(workc);
-               //bmBc.print("Bound work director");
-
-               VMatrix<complex,ColumnMajor> vmQc;
-               DiagonalFunctor<complex> diag(complex(1.0,0.0));
-               vmQc.init(N,M0,Dense).bind(diag);
-
-               BlockMatrix<complex,ColumnMajor> bmQc(nBlocks,1);
-               for (unsigned bi = 0; bi < nBlocks; ++bi) {
-                   bmQc(bi,0).init(bmAc(bi,0).nRows(),M0);
-               }
-               bmQc.bind(vmQc.data());
-
+//
                // Solve (ZeB-A) caux = workc[0:N-1][0:M0-1]
                // and put result into  workc
 
-               jacobi_solver(bmQc, bmAc, bmBc);
-               bmQc.unbind(workc);
-               //bmQc.print("Jacobi solution");
+               // Make a complex copy of A (inefficient!!)
+               TileArray<complex> bmAc;
+               bmAc.from(A);
+               bmAc.scale(-1.0);
+               bmAc.addToDiag(Ze); 
+
+               unsigned nTiles(bmAc.nRowTiles());
+               TileArray<complex> bmBc(nTiles,1);
+               TileArray<complex> bmQc(nTiles,1);
+
+               for (unsigned bi = 0; bi < nTiles; ++bi) {
+                   bmBc.set(bi,0, new CMTile<complex>(bmAc(bi,0).nRows(),M0));
+                   bmQc.set(bi,0, new CMTile<complex>(bmAc(bi,0).nRows(),M0));
+               }
+
+               CMTile<complex> vmQc(N,M0);
+               DiagonalFunctor<complex> diag(complex(1.0,0.0));
+               vmQc.fill(diag);
+
+               bmQc.bind(vmQc.data());
+               bmBc.bind(workc);
+               //bmBc.print("Bound work director");
+
+               int rc = conjugate_gradient(bmAc, bmQc, bmBc);
+               //int rc = jacobi_solver(bmAc, bmQc, bmBc);
+
+               if (rc < 0) {
+                  //Log::error("Jacobi failed to converge");
+               }
+               
+               memcpy(workc, vmQc.data(), N*M0*sizeof(complex));
+               //for (unsigned i = 0; i < 27; ++i) {
+               //     std::cout << "Workc[" << i << "] = " << workc[i] << std::endl;
+               //}
 
             } break;
 
             case 30: {
-                // Perform multiplication A x[0:N-1][i:j]
-                // and put result into   work[0:N-1][i:j]
-                // where i = fpm[23]-1, j = fpm[23]+fpm[24]-2
-                MKL_INT colsX = fpm[24];
-                MKL_INT imem = N*(fpm[23]-1);
+               // Perform multiplication A x[0:N-1][i:j]
+               // and put result into   work[0:N-1][i:j]
+               // where i = fpm[23]-1, j = fpm[23]+fpm[24]-2
+               MKL_INT colsX = fpm[24];
+               MKL_INT imem = N*(fpm[23]-1);
 
-                VMatrix<double,ColumnMajor> vmX, vmW;
-                vmX.init(N,colsX).bind(X+imem);
-                vmW.init(N,colsX).bind(ZeroFunctor<double>());
+               unsigned nTiles(A.nRowTiles());
 
-                BlockMatrix<double,ColumnMajor> bmX(vmX);
-                BlockMatrix<double,ColumnMajor> bmW(vmW); 
+               TileArray<double> taX(nTiles,1);
+               TileArray<double> taW(nTiles,1); 
 
-                double* pA = new double[A.nRows()*A.nCols()];
+               for (unsigned bi = 0; bi < nTiles; ++bi) {
+                   taX.set(bi,0, new CMTile<double>(A(bi,0).nRows(),colsX));
+                   taW.set(bi,0, new CMTile<double>(A(bi,0).nRows(),colsX));
+               }
 
-                A.unbind(pA);
+               memset(work+imem, 0, N*colsX*sizeof(double));
 
-                BlockMatrix<double,ColumnMajor> bmA(1,1);
-                bmA(0,0).init(A.nRows(),A.nCols());
-                bmA.bind(pA);
-   
-                matrix_product(bmW, bmA, bmX);
-                //matrix_product(bmW, A, bmX);
-                bmW(0,0).unbind(work+imem);
+               taX.bind(X   +imem);
+               taW.bind(work+imem);
+               product(A, taX, taW);
 
-                delete []  pA;
 
             } break;
                
@@ -308,7 +337,7 @@ int diagonalize(BlockMatrix<double,ColumnMajor>& A, unsigned const subspace, con
     printf("Trace %.15e \n", trace);
     printf("Relative error on the Trace %.15e\n\n",epsout );
 
-    if (false) {
+    if (run_sample) {
        // This is the print out for the sample problem
        printf("   Computed    |    Expected  \n");
        printf("   Eigenvalues |    Eigenvalues \n");
@@ -337,7 +366,10 @@ int diagonalize(BlockMatrix<double,ColumnMajor>& A, unsigned const subspace, con
        printf(" Max value of computed eigenvalue - expected eigenvalues %.15e \n\n", eigabs);
     }else {
        printf("   Computed  Eigenvalues  \n");
-       for (int i=0; i<M; i++ ) printf("%.15e  \n", E[i] );
+       std::cout << std::fixed << std::showpoint << std::setprecision(10);
+       for (int i=0; i<M; i++ ) {
+           std::cout << "Eigenvalue: " << i  << "   " << E[i] << std::endl;
+       }
     }
 
 
@@ -353,15 +385,69 @@ int diagonalize(BlockMatrix<double,ColumnMajor>& A, unsigned const subspace, con
 }
 
 
+int stephen()
+{
+   std::vector<double> mat(readFile("mat3"));
+   unsigned n2(mat.size());
+
+   unsigned n(std::sqrt(n2)); 
+   if (n*n != n2) {
+      std::cout << "Failed to determine matrix size" << std::endl;
+   }
+
+   std::cout << "matrix size is " << n << std::endl;
+
+   unsigned nBlocks  = 11;
+   unsigned blocks[] = { 1, 6, 6, 5, 5, 4, 5, 6, 5, 4, 3};
+
+   TileArray<double> TA(nBlocks,nBlocks);
+   for (unsigned bi = 0; bi < TA.nRowTiles(); ++bi) {
+       for (unsigned bj = 0; bj < TA.nColTiles(); ++bj) {
+           TA.set(bi,bj, new CMTile<double>(blocks[bi],blocks[bj]));
+       }
+   }
+
+   TA.bind(&mat[0]);
+   TA.info("Stephen Matrix");
+   //TA.print();
+
+   unsigned subspace(5);
+   double const Emin(46.0);
+   double const Emax(54.0);
+
+   Timer timer;
+
+   timer.start();
+   eigenvalues(TA);
+   timer.stop();
+   std::cout << "LAPACK time: " << timer.format() << std::endl;
+
+
+   timer.start();
+   int rv = diagonalize(TA, subspace, Emin, Emax);
+   timer.stop();
+
+   std::cout << "FEAST time: " << timer.format() << std::endl;
+
+   return rv;
+/*
+46.5190624681
+46.5190624704
+*/
+
+}
+
+
 
 int sample()
 {   
+
     unsigned const matsize(11);
     unsigned const subspace(8);
 
     std::vector<int> stripes{-3,-2,-1,0,1,2,3};
-    VMatrix<double,ColumnMajor> A;
-    A.init(matsize,matsize, stripes).bind(StencilFunctor());
+    StripedTile<double> A(matsize,matsize,stripes);
+    A.fill(StencilFunctor<double>());
 
     A.set( 0, 0, 5.0);
     A.set( 1, 0, 2.0);
@@ -370,12 +456,14 @@ int sample()
     A.set(10, 9, 2.0);
     A.set(10,10, 5.0);
 
-    A.print("A Matrix");
 
     double const Emin(3.0);
     double const Emax(7.0);
 
-    BlockMatrix<double,ColumnMajor> bA(A);
+    CMTile<double> dense(A);
+    dense.print("A Matrix");
+
+    TileArray<double> bA(dense);
 
     int rv = diagonalize(bA, subspace, Emin, Emax);
     return rv;

@@ -6,7 +6,7 @@
 #include <string>
 #include <cmath>
 
-#include "BlockMatrix.h"
+#include "Tile.h"
 
 
 namespace Log
@@ -71,8 +71,8 @@ int matrix_residue(T const* a, T const* b, unsigned const n)
 }
 
 
-template <class T, LayoutT L>
-int matrix_residue(VMatrix<T,L> const& a, VMatrix<T,L> const& b)
+template <class T>
+int matrix_residue(Tile<T> const& a, Tile<T> const& b)
 {
    unsigned n(a.nCols()*a.nRows());
    unsigned m(a.nCols()*a.nRows());
@@ -85,75 +85,5 @@ int matrix_residue(VMatrix<T,L> const& a, VMatrix<T,L> const& b)
    return matrix_residue(a.data(), b.data(), n);
 }
 
-
-int matrix_residue(VMatrix<double,RowMajor> const& a, std::string const& fname)
-{
-   std::ifstream ifs(fname.c_str(), std::ios::in);
-
-   if (!ifs.is_open()) {
-      std::cerr << "Failed to open flie " << fname << std::endl;
-      return 1;
-   }
-
-   double x;
-   std::vector<double> vec;
-   while (ifs >> x) { vec.push_back(x); }
-
-   unsigned n(a.nCols()*a.nRows());
-   if (n != vec.size()) {
-      std::cerr << "Mismatched file data in " << fname << std::endl;
-      return 1;
-   }
-
-   return matrix_residue(a.data(), vec.data(), n);
-}
-
-
-int matrix_residue(VMatrix<double,ColumnMajor> const& a, std::string const& fname)
-{
-   VMatrix<double,RowMajor> b;
-
-   b.init(a.nRows(), a.nCols(), a.storage());
-
-   for (unsigned i = 0; i < b.nRows(); ++i) {
-       for (unsigned j = 0; j < b.nRows(); ++j) {
-           b.set(i,j,a(i,j));
-       }
-   }
-
-   return matrix_residue(b,fname);
-}
-
-
-template <class T, LayoutT L>
-void makeDense(BlockMatrix<T,L>& bm, unsigned dim, Functor<T> const& functor)
-{ 
-   unsigned nRows(bm.nRowBlocks());
-   unsigned nCols(bm.nColBlocks());
-
-   for (unsigned bi = 0; bi < nRows; ++bi) {
-       for (unsigned bj = 0; bj < nCols; ++bj) {
-           bm(bi,bj).init(dim,dim, Dense).bind(functor);
-       }
-   }
-}
-
-
-template <class T, LayoutT L>
-void makeDiagonal(BlockMatrix<T,L>& bm, unsigned dim, Functor<T> const& functor)
-{ 
-   unsigned nRows(bm.nRowBlocks());
-   unsigned nCols(bm.nColBlocks());
-
-   for (unsigned bi = 0; bi < nRows; ++bi) {
-       for (unsigned bj = 0; bj < nCols; ++bj) {
-           if (bi ==  bj) {
-              bm(bi,bj).init(dim,dim, Dense).bind(functor);
-           }else {
-              std::cerr << "WTF" << std::endl;
-           }
-       }
-   }
-}
 
 #endif

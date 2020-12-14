@@ -5,11 +5,14 @@
 #include "CMTile.h"
 #include "TileProduct.h"
 #include "TileArray.h"
+#include "EigenSolver.h"
 
 
 #include "JacobiSolver.h"
+#include "ConjugateSolver.h"
 
 
+DebugFunctor<double> df;
 
 
 int test_1()
@@ -34,15 +37,13 @@ int test_2()
 {
    print_header(2, "DiagonalTile");
 
-   DebugFunctor f;
-   
    DiagonalTile<double> t(5,6);
    t.info();
    std::cout << "Trigger a warning on an unbound tile:" << std::endl;
    t.print();
 
    t.alloc();
-   t.fill(f);
+   t.fill(df);
    t.info();
    t.print("After binding");
 
@@ -55,8 +56,7 @@ int test_3()
 {
    print_header(3, "StripedTile");
 
-   DebugFunctor df;
-   StencilFunctor sf;
+   StencilFunctor<double> sf;
 
    std::vector<int> stripes = {-1,1,4};
    StripedTile<double> t(5,6,stripes);
@@ -78,8 +78,7 @@ int test_4()
 {
    print_header(4, "CMTile");
 
-   DebugFunctor df;
-   StencilFunctor sf;
+   StencilFunctor<double> sf;
 
    CMTile<double> t(5,6);
    t.alloc().fill(df);
@@ -104,7 +103,7 @@ int test_4()
    CMTile<double> v(5,5);
    CMTile<double> u(3,3);
    v.bind(m);   
-   v.fill();
+   v.fill0();
 
    u.bind(m,5);   
    u.info();
@@ -135,8 +134,6 @@ int test_5()
    memset(c,0,80*sizeof(double));
 
    CMTile<double> A(10,6), B(6,8), C(10,8);
-
-   DebugFunctor df;
 
    A.bind(a);
    A.fill(df);
@@ -188,11 +185,11 @@ int test_6()
 
    std::vector<int> stripes{-3,-1,0,1,3};
    StripedTile<double> A(10,6,stripes);
-   A.fill(StencilFunctor());
+   A.fill(StencilFunctor<double>());
 
    CMTile<double> B(6,8), C(10,8);
-   B.fill(DebugFunctor());
-   C.fill();
+   B.fill(df);
+   C.fill0();
 
    A.print("Matrix A");
    B.print("Matrix B");
@@ -222,10 +219,10 @@ int test_7()
    CMTile<double> A(8,12);
    double a[120];
    A.bind(a,10);
-   A.fill(DebugFunctor());
+   A.fill(df);
 
    DiagonalTile<double> D(8,12);
-   D.fill(DebugFunctor());
+   D.fill(df);
 
    A += D;
    A.print("After adding diagonal");
@@ -257,7 +254,7 @@ int test_8()
    for (unsigned bi = 0; bi < nRows; ++bi) {
        for (unsigned bj = 0; bj < nCols; ++bj) {
            TA.set(bi,bj, new CMTile<double>(nR,nC));
-           TA(bi,bj).fill(DebugFunctor());
+           TA(bi,bj).fill(df);
        }
    }
 
@@ -279,6 +276,7 @@ int test_8()
    TA += TB;
 
    TA.print("TileArray after add ");
+
    //std::cout << "Printing array:" << std::endl;
    //for (unsigned i = 0; i < 200; ++i) {
    //    std::cout << "m[" << i << "] = " << m[i] << std::endl;
@@ -309,10 +307,10 @@ int test_9()
 
 
    for (unsigned row = 0; row < nBlocks; ++row) {
-       b(row,0).fill(DebugFunctor());
+       b(row,0).fill(df);
        x(row,0).fill(ZeroFunctor<double>());
        for (unsigned col = 0; col < nBlocks; ++col) {
-           A(row,col).fill(TestFunctor(A.rowOffset(row),A.rowOffset(col)));
+           A(row,col).fill(TestFunctor(A.rowOffset(row),A.colOffset(col)));
        }
    }
 
@@ -325,7 +323,9 @@ int test_9()
 
    if (rc < 0) {
       std::cout << "ERROR: JacobiSolver failed to  converged in " << -rc << " cycles" << std::endl;
+      return 1;
    }else {
+      return 0;
       TileArray<double> result(x);
       result.fill();
       product(A, x, result);
@@ -337,47 +337,228 @@ int test_9()
 }
 
 
+template <class T>
 int test_10()
 {
    print_header(10, "Complex Jacobi Solver");
 
-   unsigned nBlocks(5);
-   unsigned blockDim(5);
+   unsigned nBlocks(3);
+   unsigned blockDim(4);
    unsigned nEigen(3);
 
-   TileArray<double> A(nBlocks,nBlocks);
-   TileArray<double> b(nBlocks,1);
-   TileArray<double> x(nBlocks,1);
+   CMTile<T> pA(nBlocks*blockDim,nBlocks*blockDim);
+   pA.fill(StencilFunctor<T>(1.0));
+
+   TileArray<T> A(nBlocks,nBlocks);
+   TileArray<T> b(nBlocks,1);
+   TileArray<T> x(nBlocks,1);
 
    for (unsigned row = 0; row < nBlocks; ++row) {
-       b.set(row, 0, new CMTile<double>(blockDim,nEigen));
-       x.set(row, 0, new CMTile<double>(blockDim,nEigen));
+       b.set(row, 0, new CMTile<T>(blockDim,nEigen));
+       x.set(row, 0, new CMTile<T>(blockDim,nEigen));
 
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           A.set(row, col, new CMTile<T>(blockDim,blockDim));
+       }
+   }
+
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       b(row,0).fill(DebugFunctor<T>());
+       x(row,0).fill(ZeroFunctor<T>());
+   }
+
+   A.bind(pA.data());
+
+   A.addToDiag(10.0);
+
+
+   for (unsigned ev = 0; ev < nEigen; ++ev) {
+       x(0,0).set(ev,ev,1.0);
+   }
+
+   A.print("A matrix");
+   b.print("b vector");
+
+   int rc = jacobi_solverLU(A,x,b);
+
+   if (rc < 0) {
+      std::cout << "ERROR: JacobiSolver failed to  converged in " << -rc << " cycles" << std::endl;
+      return 1;
+   }else {
+      return 0;
+      TileArray<T> result(x);
+      result.fill();
+      product(A, x, result);
+      result -= b;
+      result.print("Residual vector(s)");
+   }
+
+   return 0;
+}
+
+
+
+int test_11()
+{
+   print_header(11, "TileArray -> CMTile conversion");
+
+   unsigned nBlocks(3);
+   unsigned blockDim(4);
+
+   TileArray<double> A(nBlocks,nBlocks);
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
        for (unsigned col = 0; col < nBlocks; ++col) {
            A.set(row, col, new CMTile<double>(blockDim,blockDim));
        }
    }
 
+   CMTile<double> pA(A.nRows(), A.nCols());
+   pA.fill(DebugFunctor<double>());
+   A.bind(pA.data());
+
+   A.print("TileArray A:");
+
+   CMTile<double> D(A);
+   D.print("CMTile from A:");
+
+   D -= pA;
+
+   return  (std::abs(D.norm2()) < 1e-8) ? 0 : 1;
+}
+
+
+int test_12()
+{
+   print_header(12, "LAPACK eigenvalues");
+
+   unsigned nBlocks(3);
+   unsigned blockDim(4);
+   unsigned nEigen(3);
+
+   CMTile<double> pA(nBlocks*blockDim,nBlocks*blockDim);
+   pA.fill(StencilFunctor<double>(1.0));
+
+   TileArray<double> A(nBlocks,nBlocks);
 
    for (unsigned row = 0; row < nBlocks; ++row) {
-       b(row,0).fill(DebugFunctor());
-       x(row,0).fill(ZeroFunctor<double>());
        for (unsigned col = 0; col < nBlocks; ++col) {
-           A(row,col).fill(TestFunctor(A.rowOffset(row),A.rowOffset(col)));
+           A.set(row, col, new CMTile<double>(blockDim,blockDim));
        }
    }
+
+   A.bind(pA.data());
+   eigenvalues(A);
+
+   return 0;
+}
+
+
+int test_13()
+{
+   print_header(13, "LAPACK eigenvalues");
+
+   unsigned nBlocks(3);
+   unsigned blockDim(3);
+
+   CMTile<complex> pA(nBlocks*blockDim,nBlocks*blockDim);
+   pA.fill(StencilFunctor<complex>(1.0));
+
+   TileArray<complex> A(nBlocks,nBlocks);
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           A.set(row, col, new CMTile<complex>(blockDim,blockDim));
+       }
+   }
+
+   A.bind(pA.data());
+
+   return 0;
+}
+
+
+int test_14()
+{
+   print_header(14, "TileProduct test");
+
+   unsigned nBlocks(4);
+   unsigned blockDim(4);
+   TileArray<double> A(nBlocks,nBlocks);
+   TileArray<double> B(nBlocks,nBlocks);
+   TileArray<double> C(nBlocks,nBlocks);
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           A.set(row, col, new CMTile<double>(blockDim,blockDim));
+           B.set(row, col, new CMTile<double>(blockDim,blockDim));
+           C.set(row, col, new CMTile<double>(blockDim,blockDim));
+           A(row, col).fill(TestFunctor());
+           B(row, col).fill(TestFunctor());
+           C(row, col).fill0();
+       }
+   }
+
+   product(A, B, C);
+   C.print("Dense C");
+}
+
+
+
+
+template <class T>
+int test_15()
+{
+   print_header(15, "Conjugate solver");
+
+   unsigned nBlocks(3);
+   unsigned blockDim(4);
+   unsigned nEigen(3);
+
+   CMTile<T> pA(nBlocks*blockDim,nBlocks*blockDim);
+   pA.fill(StencilFunctor<T>(1.0));
+
+   TileArray<T> A(nBlocks,nBlocks);
+   TileArray<T> b(nBlocks,1);
+   TileArray<T> x(nBlocks,1);
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       b.set(row, 0, new CMTile<T>(blockDim,nEigen));
+       x.set(row, 0, new CMTile<T>(blockDim,nEigen));
+
+       for (unsigned col = 0; col < nBlocks; ++col) {
+           A.set(row, col, new CMTile<T>(blockDim,blockDim));
+       }
+   }
+
+
+   for (unsigned row = 0; row < nBlocks; ++row) {
+       b(row,0).fill(DebugFunctor<T>());
+       x(row,0).fill(ZeroFunctor<T>());
+   }
+
+   A.bind(pA.data());
+
+   A.addToDiag(10.0);
 
 
    for (unsigned ev = 0; ev < nEigen; ++ev) {
        x(0,0).set(ev,ev,1.0);
    }
 
-   int rc = jacobi_solverLU(A,x,b);
+   A.print("A matrix");
+   b.print("b vector");
+   x.print("x vector");
+
+   int rc = conjugate_gradient(A,x,b);
 
    if (rc < 0) {
-      std::cout << "ERROR: JacobiSolver failed to  converged in " << -rc << " cycles" << std::endl;
+      std::cout << "ERROR: ConjugateSolver failed to  converged in " << -rc << " cycles" << std::endl;
+      return 1;
    }else {
-      TileArray<double> result(x);
+      return 0;
+      TileArray<T> result(x);
       result.fill();
       product(A, x, result);
       result -= b;
@@ -386,6 +567,40 @@ int test_10()
 
    return 0;
 }
+
+
+int test_16()
+{
+   print_header(16, "Trans CMTile");
+
+   const size_t n(80);
+
+   double a[n], b[n], c[n];
+   memset(a,0,80*sizeof(double));
+   memset(b,0,80*sizeof(double));
+   memset(c,0,80*sizeof(double));
+
+   CMTile<double> A(6,9), B(6,8), C(9,8);
+
+   A.bind(a);
+   A.fill(df);
+
+   B.bind(b,10);  // give b a different leading dimension
+   B.fill(df);
+
+   C.bind(c,10);
+
+   A.print("Matrix A");
+   B.print("Matrix B");
+
+   tile_product(A,B,0.0,C,CblasTrans);
+
+   C.print("Product Matrix C");
+
+   return 0;
+}
+
+
 
 
 
@@ -395,6 +610,7 @@ int main()
    int ok(0);
 
    ok = ok 
+/*
       + test_1()
       + test_2()
       + test_3()
@@ -404,6 +620,13 @@ int main()
       + test_7()
       + test_8()
       + test_9()
+      + test_10<double>()
+      + test_11()
+      + test_12()
+      + test_14()
+      + test_16()
+*/
+      + test_15<double>()
    ;
 
    std::cout << std::endl;

@@ -1,5 +1,6 @@
 #include "Log.h"
 #include "CMTile.h"
+#include "TileArray.h"
 
 
 template <>
@@ -94,6 +95,29 @@ void CMTile<double>::factorLU(int* ipiv)
 }
 
 
+template <>
+void CMTile<complex>::factorLU(int* ipiv)
+{
+   int nRows(this->m_nRows);
+   int nCols(this->m_nCols);
+   int lda(this->m_leadingDim);
+
+    if (nRows != nCols || !this->isBound()) {
+       std::stringstream ss("factorLU() called on invalid Tile (");
+       ss << nRows << "," << nCols << ") -> " << this->storage();
+       Log::error(ss.str());
+       return;
+    }   
+
+    int info = LAPACKE_zsytrf(LAPACK_COL_MAJOR, 'U', nRows, this->m_data, lda, ipiv);
+    if (info != 0) {
+       std::string s("Bad return from dsytrf: ");
+       s += std::to_string(info);
+       Log::error(s);
+    }
+}
+
+
 
 template <>
 double CMTile<double>::norm2() const
@@ -129,3 +153,63 @@ double CMTile<complex>::norm2() const
 
    return n2;
 }
+
+
+
+template <>
+CMTile<double>::CMTile(TileArray<double> const& TA) : Tile<double>(TA.nRows(), TA.nCols())
+{
+   m_leadingDim = TA.nRows();
+
+   this->alloc();
+
+   size_t nRowTiles(TA.nRowTiles());
+   size_t nColTiles(TA.nColTiles());
+
+   for (size_t bj = 0; bj < nColTiles; ++bj) {
+       size_t joff(TA.colOffset(bj));
+       
+       for (size_t bi = 0; bi < nRowTiles; ++bi) {
+           size_t ioff(TA.rowOffset(bi));
+
+           Tile<double>const& t(TA.tile(bi,bj));
+
+           for (size_t j = 0; j < t.nCols(); ++j) {
+               for (size_t i = 0; i < t.nRows(); ++i) {
+                   this->set(ioff+i, joff+j, t(i,j));
+               }
+           }
+       }
+   }
+}
+
+
+
+template <>
+CMTile<complex>::CMTile(TileArray<complex> const& TA) : Tile<complex>(TA.nRows(), TA.nCols())
+{
+   m_leadingDim = TA.nRows();
+
+   this->alloc();
+
+   size_t nRowTiles(TA.nRowTiles());
+   size_t nColTiles(TA.nColTiles());
+
+   for (size_t bj = 0; bj < nColTiles; ++bj) {
+       size_t joff(TA.colOffset(bj));
+       
+       for (size_t bi = 0; bi < nRowTiles; ++bi) {
+           size_t ioff(TA.rowOffset(bi));
+           Tile<complex>const& t(TA.tile(bi,bj));
+
+           for (size_t j = 0; j < t.nCols(); ++j) {
+               for (size_t i = 0; i < t.nRows(); ++i) {
+                   this->set(ioff+i, joff+j, t(i,j));
+               }
+           }
+       }
+   }
+}
+
+
+

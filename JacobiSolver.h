@@ -2,83 +2,37 @@
 #define JACOBISOLVER_H
 
 #include <iostream>
-
-#include "BlockMatrix.h"
-#include "MatMult.h"
-
 #include "CMTile.h"
 #include "TileArray.h"
-#include "Log.h"
+#include "TileProduct.h"
 
-#define MAX_ITER      100
+#define MAX_ITER      20
 
-// Solves  A.x = b
-
-template <class T,LayoutT L>
-void jacobi_solver(BlockMatrix<T,L>& x,  BlockMatrix<T,L> const& A, BlockMatrix<T,L> const& b)
+template <class T>
+int diagonalDominance(TileArray<T> const& A)
 {
-   ZeroFunctor<T> zeroFunctor;
+   //A.info("A matrix", std::cout);
+   //A.print("A matrix", std::cout);
+   unsigned n(A.nRows());
 
-   x(0,0).set(0,0,T(1.0));
+   CMTile<T> a(A);
 
-   //A.print("A matrix ---");
-   //b.print("b vector ---");
-   //x.print("x vector ---");
-   //
-   // form the diagonal inverse matrices
-   unsigned nBlocks(A.nRowBlocks());
-   BlockMatrix<T,L> Aii(nBlocks, 1);
+   for (unsigned j = 0; j < n; ++j) {
+       double diag(std::abs(a(j,j)));
+       double colsum(0.0); 
 
-   for (int i = 0; i < nBlocks; ++i) {
-       Aii(i) = A(i,i);
-       Aii(i).invert();
-   }
-
-   //Aii.info("diags Matrix");
-   //Aii.print("diags Matrix");
-
-   BlockMatrix<T,L> work(x);
-   BlockMatrix<T,L> lastx(x);
-
-   unsigned iter(0);
-   for (iter = 0; iter < MAX_ITER; ++iter) {
-       work.bind(zeroFunctor);
-       matrix_product_sans_diagonal(work,A,x);
-       -work;
-       work += b;
-
-	   // This needs to be swapped out for a linear solve using LU
-	   // decomposition.
-       x.bind(zeroFunctor);
-       for (int i = 0; i < nBlocks; ++i) {
-           matrix_product(x(i),Aii(i),work(i));
+       for (unsigned i = 0; i < n; ++i) {
+           colsum += std::abs(a(i,j));
        }
 
-       work = lastx;
-       work -= x;
-
-       double res(0.0);
-       for (int i = 0; i < nBlocks; ++i) {
-           res += work(i).norm2();
-           lastx(i) = x(i);
-       }
-
-       std::cout << std::scientific;
-       std::cout << "Iter: " << iter << " Vector residual = " << std::sqrt(res) << std::endl;
-       if (std::sqrt(res) < 1e-8) {
-          std::cout << "CONVERGED, iterations "<< iter << std::endl;
-          return;
-          BlockMatrix<T,L> result(x);
-          result.bind(zeroFunctor);
-          matrix_product(result, A, x);
-          result.print("Prodct A.x");
-          b.print("RHS b");
-          
+       colsum -= diag;
+      
+       if (diag < colsum) {
+          std::cout << "Colsum " << j << "  " << diag << "  " << colsum;
+          std::cout << "     !!!!" << std::endl;
        }
    }
-   std::cout << "FAILED TO CONVERGED, iterations "<< iter << std::endl;
 }
-
 
 
 
@@ -86,6 +40,8 @@ void jacobi_solver(BlockMatrix<T,L>& x,  BlockMatrix<T,L> const& A, BlockMatrix<
 template <class T>
 int jacobi_solver(TileArray<T> const& A, TileArray<T>& x, TileArray<T> const& b)
 {
+   diagonalDominance(A);
+
    //A.print("A matrix ---");
    //b.print("b vector ---");
    //x.print("x vector ---");
@@ -106,38 +62,52 @@ int jacobi_solver(TileArray<T> const& A, TileArray<T>& x, TileArray<T> const& b)
 
    TileArray<T> work(x);
    TileArray<T> lastx(x);
+   double res(0.0);
+   unsigned iter(0);
 
-   for (unsigned iter = 0; iter < MAX_ITER; ++iter) {
+   for (iter = 0; iter < MAX_ITER; ++iter) {
        work.fill();
        product_sans_diagonal(A, x, work);
 
        work.scale(-1.0);
        work += b;
 
-	   // This needs to be swapped out for a linear solve using LU
-	   // decomposition.
+	   // Swap this out for a linear solve using LU decomposition.
        for (int i = 0; i < nTiles; ++i) {
-           tile_product(Aii(i), work(i), 0.0, x(i));
+           tile_product(Aii(i), work(i), T(0.0), x(i));
        }
 
        work  = lastx;
        work -= x;
 
-       double res(0.0);
+       res = 0.0;
        for (int i = 0; i < nTiles; ++i) {
            res += work(i).norm2();
            lastx(i) = x(i);
        }
+       res = std::sqrt(res);
 
-       std::cout << std::scientific;
-       std::cout << "Iter: " << iter << " Vector residual = " << std::sqrt(res) << std::endl;
-       if (std::sqrt(res) < 1e-8) {
-          std::cout << "CONVERGED, iterations "<< iter << std::endl;
-          return iter;
-       }
+       //std::cout << std::scientific;
+       //std::cout << "Iter: " << iter << " Vector residual = " << res << std::endl;
+       if (res < 1e-8) break;
    }
 
-   return -MAX_ITER;
+   if (iter < MAX_ITER) {
+      std::cout << "CONVERGED, iterations "<< iter << std::endl;
+   }else {
+      std::cout << "FAILED to converge: " << res << std::endl;
+      iter *= -1;
+   }
+
+   if (false) {
+      work.fill();
+      product(A, x, work);
+      work -= b;
+      std::cout <<"product norm: " << work.norm2() << std::endl;
+   }
+
+
+   return iter;
 }
 
 
@@ -149,7 +119,6 @@ void lu_solve(Tile<T> const& A, Tile<T>& b, int* ipiv);
 template <class T>
 int jacobi_solverLU(TileArray<T> const& A, TileArray<T>& x, TileArray<T> const& b)
 {
-   int rc = -MAX_ITER;
    //A.print("A matrix ---");
    //b.print("b vector ---");
    //x.print("x vector ---");
@@ -164,10 +133,10 @@ int jacobi_solverLU(TileArray<T> const& A, TileArray<T>& x, TileArray<T> const& 
    for (int i = 0; i < nTiles; ++i) {
        CMTile<T> const& t = dynamic_cast<CMTile<T> const&>(A(i,i));
        CMTile<T>* tile = new CMTile<T>(t);
-       tile->print("before factorization");
+       //tile->print("before factorization");
        ipiv[i] = new int[tile->nRows()];
        tile->factorLU(ipiv[i]);
-       tile->print("after factorization");
+       //tile->print("after factorization");
        Aii.set(i,0,tile);
    }
 
@@ -177,7 +146,10 @@ int jacobi_solverLU(TileArray<T> const& A, TileArray<T>& x, TileArray<T> const& 
    TileArray<T> work(x);
    TileArray<T> lastx(x);
 
-   for (unsigned iter = 0; iter < MAX_ITER; ++iter) {
+   double res(0.0);
+   unsigned iter(0);
+
+   for (iter = 0; iter < MAX_ITER; ++iter) {
        work.fill();
        // A.x = work
        product_sans_diagonal(A, x, work);
@@ -193,19 +165,15 @@ int jacobi_solverLU(TileArray<T> const& A, TileArray<T>& x, TileArray<T> const& 
        work = lastx;
        work -= x;
 
-       double res(0.0);
+       res = 0.0;
        for (int i = 0; i < nTiles; ++i) {
            res += work(i).norm2();
            lastx(i) = x(i);
        }
 
-       std::cout << std::scientific;
-       std::cout << "Iter: " << iter << " Vector residual = " << std::sqrt(res) << std::endl;
-       if (std::sqrt(res) < 1e-8) {
-          std::cout << "CONVERGED, iterations "<< iter << std::endl;
-          rc = iter;
-          goto cleanup;
-       }
+       //std::cout << std::scientific;
+       //std::cout << "Iter: " << iter << " Vector residual = " << std::sqrt(res) << std::endl;
+       if (std::sqrt(res) < 1e-8) break;
    }
 
    cleanup:
@@ -214,7 +182,14 @@ int jacobi_solverLU(TileArray<T> const& A, TileArray<T>& x, TileArray<T> const& 
       }
       delete [] ipiv;
 
-   return rc;
+   if (iter < MAX_ITER) {
+      std::cout << "CONVERGED, iterations "<< iter << std::endl;
+   }else {
+      std::cout << "FAILED to converge: " << res << std::endl;
+      iter *= -1;
+   }
+
+   return iter;
 }
 
 #endif

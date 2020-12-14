@@ -21,7 +21,7 @@ class TileArray
 {
    public:
 
-      TileArray(size_t const nRowTiles, size_t const nColTiles) :
+      TileArray(size_t const nRowTiles = 0, size_t const nColTiles = 0) :
          m_nRowTiles(nRowTiles), m_nColTiles(nColTiles)
       {
          size_t nTiles(m_nRowTiles*m_nColTiles);
@@ -66,6 +66,21 @@ class TileArray
       }
 
 
+      template <class U>
+      void from(TileArray<U> const& that)
+      {
+         resize(that.nRowTiles(), that.nColTiles());
+
+         m_tiles = new Tile<T>*[m_nRowTiles*m_nColTiles];
+
+         for (unsigned col = 0; col < m_nColTiles; ++col) {
+             for (unsigned row = 0; row < m_nRowTiles; ++row) {
+                 m_tiles[row + col*m_nRowTiles] = TileFactory2<T,U>(that(row,col));
+            }
+         }
+      }
+
+
       TileArray& operator+=(TileArray const& that)
       {
          assert(that.nRowTiles() == m_nRowTiles);
@@ -95,14 +110,24 @@ class TileArray
       }
 
 
-      template <class T>
       void addToDiag(T const t)
       {
          unsigned m(std::min(m_nColTiles, m_nRowTiles));
          for (unsigned bi = 0; bi < m; ++bi) {
              tile(bi,bi).addToDiag(t);
          }
-         return *this;
+      }
+
+
+      double norm2() const
+      {
+         double norm(0.0);
+         for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
+             for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
+                 norm += tile(bi,bj).norm2();
+             }
+         }
+         return norm;
       }
       
 
@@ -146,7 +171,7 @@ class TileArray
       {
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
-                 tile(bi,bj).fill();
+                 tile(bi,bj).fill0();
              }
          }
       }
@@ -179,13 +204,13 @@ class TileArray
       }
 
 
-      unsigned nRowTiles() const 
+      size_t nRowTiles() const 
       { 
          return m_nRowTiles; 
       }
 
 
-      unsigned nColTiles() const 
+      size_t nColTiles() const 
       { 
          return m_nColTiles; 
       }
@@ -284,6 +309,7 @@ class TileArray
          for (unsigned row = 0; row < m_nRowTiles; ++row) {
              for (unsigned col = 0; col < m_nColTiles; ++col) {
                  Tile<T> const& m(tile(row, col));
+                 //os << "(" << m.nRows() <<","<< m.nCols() << ")  -> " << m.numData();
                  os << "(" << m.nRows() <<","<< m.nCols() << ")  ";
              }   
              os << std::endl;
@@ -305,6 +331,7 @@ class TileArray
       {
          if (msg) os << msg << std::endl;
 
+         std::cout << std::fixed << std::showpoint << std::setprecision(2);
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              unsigned nr = tile(bi,0).nRows();
              for (unsigned i = 0; i < nr; ++i) {
@@ -312,11 +339,14 @@ class TileArray
                      Tile<T> const& m(tile(bi, bj));
                      unsigned nc = m.nCols();
                      for (unsigned j = 0; j < nc; ++j) {
+                            os << std::setw(5) << m(i,j) << " ";
+/*
                          if (m(i,j) == 0) {
                             os << "    . ";
                          }else {
                             os << std::setw(5) << m(i,j) << " ";
                          }
+*/
                      }
                      os << " ";
                 }
@@ -331,6 +361,14 @@ class TileArray
       size_t m_nRowTiles;
       size_t m_nColTiles;
       Tile<T>** m_tiles;
+
+
+      void resize(size_t nRowTiles, size_t nColTiles)
+      {
+         destroy();
+         m_nRowTiles = nRowTiles;
+         m_nColTiles = nColTiles;
+      }
 
 
       void destroy()
@@ -358,7 +396,6 @@ class TileArray
         for (unsigned col = 0; col < m_nColTiles; ++col) {
             for (unsigned row = 0; row < m_nRowTiles; ++row) {
                  m_tiles[row + col*m_nRowTiles] = TileFactory(that(row,col));
-                 Tile<T>* ptr = m_tiles[row + col*m_nRowTiles];
             }
          }
      }

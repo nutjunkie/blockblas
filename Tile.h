@@ -116,9 +116,10 @@ class Tile
       }
 
 
-      void fill()
+      virtual void fill0()
       {
          if (!isBound()) alloc();
+         std::cerr << "memset length " << m_nData*sizeof(T) << "  = " << m_nData << "x" << sizeof(T) << "  => " << m_nRows << "x" << m_nCols << std::endl;
          memset(m_data, 0, m_nData*sizeof(T));
       }
 
@@ -207,6 +208,7 @@ class Tile
          os << "Num data:    " << m_nData << std::endl;
          os << "Type size:   " << sizeof(T) << std::endl;
          os << "Dimensions:  " << m_nRows << "x" << m_nCols << std::endl;
+         os << "Own data:    " << m_ownData << std::endl;
       }
 
 

@@ -45,41 +45,40 @@ class DiagonalFunctor : public Functor<T>
 };
 
 
-class DebugFunctor : public Functor<double>
+template <class T>
+class DebugFunctor : public Functor<T>
 {
    public:
-      double operator()(unsigned const i, unsigned const j) const 
+      T operator()(unsigned const i, unsigned const j) const 
       { 
-         return (i+1) + 0.01*(j+1); 
+         return T((i+1) + 0.01*(j+1)); 
       }
 };
 
 
-class ComplexDebugFunctor : public Functor<complex>
+
+template <class T>
+class StencilFunctor : public Functor<T>
 {
    public:
-      complex operator()(unsigned const i, unsigned const j) const 
-      { 
-         return complex(1.0*(i+1)+ 0.01*(j+1),0.0);
-      }
-};
+      StencilFunctor(T const scale = 1.0) : m_scale(scale) 
+      { }
 
-
-class StencilFunctor : public Functor<double>
-{
-   public:
-      double operator()(unsigned const i, unsigned const j) const 
+      T operator()(unsigned const i, unsigned const j) const 
       { 
          int d(std::abs((int)i-(int)j));
-         double val(0.0);
+         T val(0.0);
          switch (d) {
-            case 0: val = 6.0; break;
-            case 1: val = 3.0; break;
-            case 2: val = 1.0; break;
-            case 3: val = 1.0; break;
+            case 0: val = 6.0;         break;
+            case 1: val = 3.0*m_scale; break;
+            case 2: val = 1.0*m_scale; break;
+            case 3: val = 1.0*m_scale; break;
          }
          return val;
       }
+
+   private:
+      T m_scale;
 };
 
 
@@ -93,7 +92,7 @@ class TestFunctor : public Functor<double>
       { 
          unsigned offi(i+m_rowOffset);
          unsigned offj(j+m_colOffset);
-         return (offi == offj) ? 1.0 + offi : 0.1*std::sin(1.0*(offi+offj));
+         return (offi == offj) ? 1.0 + offi : 0.2*std::sin(1.0*(offi+offj));
       }
    private:
       unsigned m_rowOffset;

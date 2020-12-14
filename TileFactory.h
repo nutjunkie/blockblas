@@ -39,12 +39,53 @@ Tile<T>* TileFactory(Tile<T> const& that)
       } break;
 
       default: {
-         Log::error("Unimplemented Storage in TileFactory");
+         std::cerr << "Unimplemented Storage in TileFactory" << std::endl;
       } break;
    }
 
    return tile;
 };
+
+
+template <class T, class U>
+Tile<T>* TileFactory2(Tile<U> const& that)
+{
+   Tile<T>* tile(0);
+
+   switch (that.storage()) {
+      case Zero: {
+         ZeroTile<U> const& t = dynamic_cast<ZeroTile<U> const&>(that);
+         tile = new ZeroTile<T>();
+         tile->from(t);
+      } break;
+
+      case Diagonal: {
+         DiagonalTile<U>const& t = dynamic_cast<DiagonalTile<U> const&>(that);
+         tile = new DiagonalTile<T>();
+         tile->from(t);
+      } break;
+
+      case Striped: {
+         StripedTile<U>const& t = dynamic_cast<StripedTile<U> const&>(that);
+         tile = new StripedTile<T>();
+         tile->from(t);
+      } break;
+
+      case CMDense: {
+         CMTile<U>const& t = dynamic_cast<CMTile<U> const&>(that);
+         tile = new CMTile<T>();
+         tile->from(t);
+      } break;
+
+      default: {
+         std::cerr << "Unimplemented Storage in TileFactory2" << std::endl;
+      } break;
+   }
+
+   return tile;
+};
+
+
 
 
 #endif

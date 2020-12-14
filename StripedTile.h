@@ -2,7 +2,10 @@
 #define STRIPEDTILE_H
 /******************************************************************************
  * 
- *  Tile that contains only elements along specified stripes
+ *  Tile that contains only elements along specified diagonal stripes.  The
+ *  stripes are determined by an integer  vector containing offsets from the
+ *  main diagonal.  0 => main diagonal, -n => lower off-diagonal, +n => upper
+ *  off-diagonal.
  * 
  *****************************************************************************/
 
@@ -69,26 +72,26 @@ class StripedTile : public Tile<T>
       }
 
 
-     Tile<T>& operator+=(Tile<T> const& that)
-     {   
-        Log::error("operator+= NYI for StripedTile");
-        return *this;
-     }   
+      Tile<T>& operator+=(Tile<T> const& that)
+      {   
+         std::cerr << "operator+= NYI for StripedTile" << std::endl;;
+         return *this;
+      }   
 
 
-     Tile<T>& operator-=(Tile<T> const& that)
-     {   
-        Log::error("operator-= NYI for StripedTile");
-        return *this;
-     }  
-
-
-     Tile<T>& scale(T const t)
-     {
-        for (size_t i = 0; i < this->m_nData; ++i) {
-            this->m_data[i] *= t;
-        } 
-     }
+      Tile<T>& operator-=(Tile<T> const& that)
+      {   
+          std::cerr << "operator-= NYI for StripedTile" << std::endl;;
+          return *this;
+      }  
+ 
+ 
+      Tile<T>& scale(T const t)
+      {
+         for (size_t i = 0; i < this->m_nData; ++i) {
+             this->m_data[i] *= t;
+         } 
+      }
 
 
    protected:

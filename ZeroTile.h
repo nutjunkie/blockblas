@@ -55,14 +55,14 @@ class ZeroTile : public Tile<T>
 
       Tile<T>& operator+=(Tile<T> const& that)
       {
-         Log::error("operator+= NYI for ZeroTile");
+         std::cerr << "operator+= NYI for ZeroTile" << std::endl;;
          return *this;
       }
 
 
       Tile<T>& operator-=(Tile<T> const& that)
       {
-         Log::error("operator-= NYI for ZeroTile");
+        std::cerr << "operator-= NYI for ZeroTile" << std::endl;;
          return *this;
       }
 

@@ -49,14 +49,14 @@ class DiagonalTile : public Tile<T>
 
       Tile<T>& operator+=(Tile<T> const& that)
       {   
-         Log::error("operator+= NYI for DiagonalTile");
+         std::cerr << "operator+= NYI for DiagonalTile" << std::endl;;
          return *this;
       }   
 
 
       Tile<T>& operator-=(Tile<T> const& that)
       {   
-         Log::error("operator-= NYI for DiagonalTile");
+         std::cerr << "operator+= NYI for DiagonalTile" << std::endl;;
          return *this;
       }  
 
@@ -82,11 +82,6 @@ class DiagonalTile : public Tile<T>
          }
       }
       
-     
-
-
-      //void fill(Functor<T> const& functor) { Tile<T>::fill(functor); }
-      //void fill() { Tile<T>::fill(); }
 };
 
 #endif

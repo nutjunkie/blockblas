@@ -2,39 +2,36 @@ CXX = icc
 CXXFLAGS = -std=c++11 -g -pg  -O2 -fopenmp -funroll-loops -ffast-math
 LIBS = -mkl
 
-HEADERS = util.h Timer.h VMatrix.h BlockMatrix.h JacobiSolver.h Functor.h
-OBJECTS = MatMult.o VMatrix.o BlockMatrix.o
-
-TILE_HEADERS = Tile.h ZeroTile.h DiagonalTile.h StripedTile.h CMTile.h util.h \
-               JacobiSolver.h
-TILE_OBJECTS = Tile.o VMatrix.o CMTile.o TileProduct.o JacobiSolver.o
+HEADERS = Tile.h ZeroTile.h DiagonalTile.h StripedTile.h CMTile.h util.h \
+          JacobiSolver.h Functor.h TileProduct.h EigenSolver.h ConjugateSolver.h \
+          TileArray.h
+OBJECTS = Tile.o CMTile.o TileProduct.o JacobiSolver.o EigenSolver.o
 
 
 
-%.o : %.C %.h
+%.o : %.C 
 	$(CXX) -c $(LIBS) $(CXXFLAGS) $< -o $@
 
+feast.o: feast.C $(HEADERS)
+	$(CXX) -c $(LIBS) $(CXXFLAGS) feast.C -o feast.o
 
-tile_test: tile_test.o $(TILE_HEADERS) $(TILE_OBJECTS)
-	$(CXX) $(CXXFLAGS) -o tile_test $(LIBS) $(TILE_OBJECTS) tile_test.o
+tile_test.o: tile_test.C $(HEADERS)
+	$(CXX) -c $(LIBS) $(CXXFLAGS) tile_test.C -o tile_test.o
+
+
+tile_test: tile_test.o $(HEADERS) $(OBJECTS)
+	$(CXX) $(CXXFLAGS) -o tile_test $(LIBS) $(OBJECTS) tile_test.o
 	
 
-
-feast: feast.o $(OBJECTS) $(HEADERS)
+feast: feast.o $(OBJECTS) 
 	$(CXX) $(CXXFLAGS) -o feast $(LIBS) $(OBJECTS) feast.o
 
 timing: timing.o $(OBJECTS) $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o timing $(LIBS) $(OBJECTS) timing.o
 
-test: test.o $(OBJECTS) $(HEADERS)
-	$(CXX) $(CXXFLAGS) -o test $(LIBS) $(OBJECTS) test.o
 
 blas: blas.o $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o blas $(LIBS) $(OBJECTS) blas.o
 
 clean:
-	rm -f $(OBJECTS) $(TILE_OBJECTS) test.o test timing.o timing blas.o blas
-
-VMatrix.o: VMatrix_templateT.cpp VMatrix_templateL.cpp
-
-BlockMatrix.o: BlockMatrix_templateT.cpp BlockMatrix_templateL.cpp
+	rm -f $(OBJECTS)  timing.o blas.o feast.o timing blas feast

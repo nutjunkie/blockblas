@@ -10,6 +10,8 @@
 #include "StripedTile.h"
 #include "DiagonalTile.h"
 
+template <class T>
+class TileArray;
 
 template <class T>
 class CMTile : public Tile<T>
@@ -25,6 +27,9 @@ class CMTile : public Tile<T>
       {
          copy(that);
       }
+
+
+      CMTile(TileArray<T> const& TA);
 
 
       StorageT storage() const
@@ -65,6 +70,8 @@ class CMTile : public Tile<T>
       double norm2() const;
 
 
+
+
       void bind(T* data, size_t leadingDim = 0)
       {
          m_leadingDim = (leadingDim == 0) ? this->m_nRows : leadingDim;
@@ -86,7 +93,7 @@ class CMTile : public Tile<T>
             } break;
 
             default:
-               Log::error("operator+= NYI for CMTile");
+               std::cerr << "ERROR: operator+= NYI for CMTile" << std::endl;
                break;
          }
          return *this;
@@ -107,7 +114,7 @@ class CMTile : public Tile<T>
             } break;
 
             default:
-               Log::error("operator-= NYI for CMTile");
+               std::cerr << "ERROR: operator-= NYI for CMTile" << std::endl;
                break;
          }
          return *this;
@@ -223,6 +230,23 @@ class CMTile : public Tile<T>
       }
 
 
+      void fill0()
+      {
+         if (!this->isBound()) this->alloc();
+
+         T* a0(this->data());
+         size_t lda(this->m_leadingDim);
+
+//#pragma omp parallel for
+         for (unsigned j = 0; j < this->m_nCols; ++j) {
+             T* a(a0+j*lda);            
+             memset(a,0,this->m_nRows*sizeof(T));
+         }
+      }
+
+
+
+
       void info(const char* msg = 0, std::ostream& os = std::cout) const
       {
          Tile<T>::info(msg,os);
@@ -259,6 +283,7 @@ class CMTile : public Tile<T>
    protected:
       void resize(size_t nRows, size_t nCols)
       {
+          this->dealloc();
           this->m_nRows = nRows;
           this->m_nCols = nCols;
           m_leadingDim  = nRows;
@@ -275,9 +300,8 @@ class CMTile : public Tile<T>
                break;
 
             default:
-               std::string s("CMTile::copy called with unimplemnted type: ");
-               s += toString(storage());
-               Log::error(s);
+               std::cerr <<"ERROR: CMTile::copy called with unimplemnted type: " 
+                         << that.storage() << std::endl;
                break;
          }
       }
