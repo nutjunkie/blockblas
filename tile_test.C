@@ -600,6 +600,42 @@ int test_16()
    return 0;
 }
 
+int test_17()
+{
+   print_header(17, "Diagonal Tile product");
+
+   const size_t n(80);
+
+   double a[n], b[n], c[n];
+   memset(a,0,80*sizeof(double));
+   memset(b,0,80*sizeof(double));
+   memset(c,0,80*sizeof(double));
+
+   DiagonalTile<double> A(6,6);
+   CMTile<double> B(6,8), C(6,8);
+
+   A.bind(a);
+   A.fill(df);
+
+   B.bind(b,10);  // give b a different leading dimension
+   B.fill(df);
+
+   C.bind(c,10);
+
+   A.print("Matrix A");
+   B.print("Matrix B");
+
+   tile_product(A,B,0.0,C);
+   C.print("Product Matrix C");
+
+   CMTile<double> D(A);
+
+   tile_product(D,B,0.0,C);
+   C.print("Product Matrix C");
+
+   return 0;
+}
+
 
 
 
@@ -625,8 +661,9 @@ int main()
       + test_12()
       + test_14()
       + test_16()
-*/
       + test_15<double>()
+*/
+      + test_17()
    ;
 
    std::cout << std::endl;

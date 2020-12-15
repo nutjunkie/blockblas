@@ -40,7 +40,7 @@ int diagonalDominance(TileArray<T> const& A)
 template <class T>
 int jacobi_solver(TileArray<T> const& A, TileArray<T>& x, TileArray<T> const& b)
 {
-   diagonalDominance(A);
+   //diagonalDominance(A);
 
    //A.print("A matrix ---");
    //b.print("b vector ---");

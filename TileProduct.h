@@ -17,15 +17,35 @@ void tile_product(CMTile<T> const& A, CMTile<T> const& B, T const c, CMTile<T>& 
 
 
 template <class T>
-void tile_product(StripedTile<T> const& A, CMTile<T> const& B,
-   T const beta, CMTile<T>& C)
+void tile_product(DiagonalTile<T> const& A, CMTile<T> const& B, T const alpha, CMTile<T>& C)
+{
+   unsigned nc(B.nCols());
+   unsigned nr(A.nRows());
+
+   unsigned ldb(B.leadingDim());
+   unsigned ldc(C.leadingDim());
+
+   T const* a(A.data());
+   T const* b(B.data());
+   T*       c(C.data());
+
+   for (unsigned j = 0; j < nc; ++j) {
+       for (unsigned i = 0; i < nr; ++i) {
+           c[i+ldc*j] = a[i] * b[i+j*ldb] + alpha*c[i+ldc*j];
+       }
+   }
+}
+
+
+template <class T>
+void tile_product(StripedTile<T> const& A, CMTile<T> const& B, T const alpha, CMTile<T>& C)
 {
    unsigned rowsA(A.nRows());
    unsigned colsA(A.nCols());
    unsigned colsC(C.nCols());
 
-   unsigned ldb(B.nRows());
-   unsigned ldc(C.nRows());
+   unsigned ldb(B.leadingDim());
+   unsigned ldc(C.leadingDim());
 
    unsigned m(std::min(rowsA,colsA));
 
@@ -48,7 +68,7 @@ void tile_product(StripedTile<T> const& A, CMTile<T> const& B,
            T const* b0(&b[offB+j*ldb]);
            T*       c0(&c[offC+j*ldc]);
            for (unsigned i = 0; i < len; ++i) {
-               c0[i] += a0[i]*b0[i];
+               c0[i] = a0[i]*b0[i] + alpha*c0[i];
            }   
        }   
    }   
@@ -65,6 +85,12 @@ void tile_product(Tile<T> const& A, Tile<T> const& B, T const alpha, Tile<T>& C)
       case Zero: {
          return;
       } break;
+
+      case Diagonal: {
+         DiagonalTile<T> const& a = dynamic_cast<DiagonalTile<T> const&>(A);
+         tile_product(a, b, alpha, c);
+      } break;
+
 
       case Striped: {
          StripedTile<T> const& a = dynamic_cast<StripedTile<T> const&>(A);

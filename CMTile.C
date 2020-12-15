@@ -211,5 +211,3 @@ CMTile<complex>::CMTile(TileArray<complex> const& TA) : Tile<complex>(TA.nRows()
    }
 }
 
-
-

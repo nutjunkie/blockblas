@@ -234,7 +234,7 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
             case 11: {
                std::cout<< std::setprecision(7);
 
-               std::cout << "Complex root: "<< Ze << std::endl;
+//             std::cout << "Complex root: "<< Ze << std::endl;
 //             std::cout << "Num RHS:      "<< fpm[23-1] << std::endl;
 //             zC = Ze * zB + zA
 //
@@ -264,8 +264,9 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
                bmBc.bind(workc);
                //bmBc.print("Bound work director");
 
-               int rc = conjugate_gradient(bmAc, bmQc, bmBc);
                //int rc = jacobi_solver(bmAc, bmQc, bmBc);
+               int rc = conjugate_gradient(bmAc, bmQc, bmBc);
+               //int rc = conjugate_gradientPC(bmAc, bmQc, bmBc);
 
                if (rc < 0) {
                   //Log::error("Jacobi failed to converge");
@@ -413,7 +414,7 @@ int stephen()
 
    unsigned subspace(5);
    double const Emin(46.0);
-   double const Emax(54.0);
+   double const Emax(55.0);
 
    Timer timer;
 

@@ -8,6 +8,8 @@
 
 #include "Tile.h"
 
+template <class T>
+class CMTile;
 
 template <class T>
 class DiagonalTile : public Tile<T>
@@ -18,6 +20,12 @@ class DiagonalTile : public Tile<T>
 
 
       DiagonalTile(DiagonalTile<T> const& that)
+      {
+         copy(that);
+      }
+
+
+      DiagonalTile(Tile<T> const& that)
       {
          copy(that);
       }
@@ -65,6 +73,15 @@ class DiagonalTile : public Tile<T>
       {
          for (size_t i = 0; i < this->m_nData; ++i) {
              this->m_data[i] *= t;
+         } 
+      }
+
+      void invert()
+      {
+         T tmp;
+         for (size_t i = 0; i < this->m_nData; ++i) {
+             tmp = this->m_data[i];
+             this->m_data[i] = 1.0/tmp;;
          } 
       }
 
