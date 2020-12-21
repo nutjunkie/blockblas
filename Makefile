@@ -1,6 +1,14 @@
+#CXX = mpiicc
 CXX = icc
-CXXFLAGS = -std=c++11 -g -pg  -O2 -fopenmp -funroll-loops -ffast-math
-LIBS = -mkl
+#CXXFLAGS = -std=c++11 -g -pg  -fopenmp 
+CXXFLAGS = -std=c++11 -g -pg  -O2 -qopenmp -funroll-loops -ffast-math
+LIBS = -mkl 
+
+#CXX = g++
+#CXXFLAGS = -std=c++11 -g -pg  -fopenmp 
+#LIBS = -lintel_mkl
+
+
 
 HEADERS = Tile.h ZeroTile.h DiagonalTile.h StripedTile.h CMTile.h util.h \
           JacobiSolver.h Functor.h TileProduct.h EigenSolver.h ConjugateSolver.h \

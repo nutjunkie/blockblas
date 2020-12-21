@@ -67,7 +67,7 @@ Tile<T>* TileFactory2(Tile<U> const& that)
 
       case Striped: {
          StripedTile<U>const& t = dynamic_cast<StripedTile<U> const&>(that);
-         tile = new StripedTile<T>();
+         tile = new StripedTile<T>(t.nRows(), t.nCols(), t.stripes());
          tile->from(t);
       } break;
 

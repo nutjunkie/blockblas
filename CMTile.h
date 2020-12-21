@@ -10,7 +10,7 @@
 #include "StripedTile.h"
 #include "DiagonalTile.h"
 
-template <class T>
+template <class U>
 class TileArray;
 
 template <class T>
@@ -64,12 +64,11 @@ class CMTile : public Tile<T>
 
       void invert();
 
+
       void factorLU(int*);
 
 
       double norm2() const;
-
-
 
 
       void bind(T* data, size_t leadingDim = 0)
@@ -92,9 +91,17 @@ class CMTile : public Tile<T>
                *this += t;
             } break;
 
-            default:
-               std::cerr << "ERROR: operator+= NYI for CMTile" << std::endl;
-               break;
+            default: {
+               size_t lda(this->m_leadingDim);
+               size_t nr(this->m_nRows);
+               size_t nc(this->m_nCols);
+ 
+               for (unsigned j = 0; j < nc; ++j) {
+                   for (unsigned i = 0; i < nr; ++i) {
+                       this->m_data[i+lda*j] += that(i,j); 
+                   }
+               }
+            } break;
          }
          return *this;
       }   
@@ -113,9 +120,16 @@ class CMTile : public Tile<T>
                *this -= t;
             } break;
 
-            default:
-               std::cerr << "ERROR: operator-= NYI for CMTile" << std::endl;
-               break;
+            default: {
+               size_t lda(this->m_leadingDim);
+               size_t nr(this->m_nRows);
+               size_t nc(this->m_nCols);
+               for (unsigned j = 0; j < nc; ++j) {
+                   for (unsigned i = 0; i < nr; ++i) {
+                       this->m_data[i+lda*j] -= that(i,j); 
+                   }
+               }
+            } break;
          }
          return *this;
       }  
@@ -152,7 +166,6 @@ class CMTile : public Tile<T>
 
          T* a0(this->data());
          T const* b0(that.data());
-#pragma omp parallel for
          for (unsigned j = 0; j < nCols; ++j) {
              T* a(a0+j*lda);            
              T const* b(b0+j*ldb);            
@@ -199,7 +212,6 @@ class CMTile : public Tile<T>
 
          T* a0(this->data());
          T const* b0(that.data());
-#pragma omp parallel for
          for (unsigned j = 0; j < nCols; ++j) {
              T* a(a0+j*lda);            
              T const* b(b0+j*ldb);            
@@ -218,7 +230,6 @@ class CMTile : public Tile<T>
          T* a0(this->data());
          size_t lda(this->m_leadingDim);
 
-#pragma omp parallel for
          for (unsigned j = 0; j < this->m_nCols; ++j) {
              T* a(a0+j*lda);            
              for (unsigned i = 0; i < this->m_nRows; ++i) {
@@ -237,14 +248,11 @@ class CMTile : public Tile<T>
          T* a0(this->data());
          size_t lda(this->m_leadingDim);
 
-//#pragma omp parallel for
          for (unsigned j = 0; j < this->m_nCols; ++j) {
              T* a(a0+j*lda);            
              memset(a,0,this->m_nRows*sizeof(T));
          }
       }
-
-
 
 
       void info(const char* msg = 0, std::ostream& os = std::cout) const
@@ -253,30 +261,49 @@ class CMTile : public Tile<T>
          std::cout << "Leading Dim: " << m_leadingDim <<  std::endl;
       }
 
-/*
-      template <class T>
-      void toDense(CMTile<T>& vm) const
+
+      Tile<T>* reduce()
       {
-         vm.resize(nRows(), nCols());
-         vm.alloc();
+          unsigned const nr(this->m_nRows);
+          unsigned const nc(this->m_nCols);
 
-         for (unsigned bi = 0; bi < nRowTiles(); ++bi) {
-             unsigned iOff(rowOffset(bi));
-             for (unsigned bj = 0; bj < nColTiles(); ++bj) {
-                 unsigned jOff(colOffset(bj));
-//               std::cout << "Tile("<< bi << "," << bj << ") with offset (" 
-//                         << iOff << "," << jOff << ")" << std::endl;
-                 U const& m(tile(bi,bj));
-                 for (unsigned i = 0; i < m.nRows(); ++i) {
-                     for (unsigned j = 0; j < m.nCols(); ++j) {
-                         vm.set(iOff+i, jOff+j, m(i,j));
-                     }
-                 }
-             }
-         }
+          int const nDiags(nr+nc-1);
+          int const offset(nr-1);
+
+          T* sums = new T[nDiags];
+
+          memset(sums, 0, nDiags*sizeof(T));
+
+          for (int j = 0; j < nc; ++j) {
+              for (int i = 0; i < nr; ++i) {
+                  sums[j-i+offset] += std::abs(this->m_data[i+j*m_leadingDim]);
+              }
+          }
+
+          double thresh(1e-10);
+          std::vector<int> stripes;
+          for (int i = 0; i < nDiags; ++i) {
+              if (sums[i] > thresh) stripes.push_back(i-offset);
+          }
+
+          Tile<T>* tile;
+          size_t k(stripes.size());
+          if (k == 0) {
+             tile = new ZeroTile<T>(*this); 
+          }else if (k == 1 && sums[offset] > thresh && nDiags != 1) {
+             tile = new DiagonalTile<T>(*this); 
+          }else if (k < nDiags/2) {
+             tile = new StripedTile<T>(*this, stripes); 
+          }else {
+             tile = new CMTile<T>(*this);
+          }
+
+          //std::cout << "Storage reduced to " << k << " " << toString(tile->storage()) << std::endl;
+          //this->print();
+          delete [] sums;
+
+          return tile;
       }
-*/
-
 
 
 
@@ -322,7 +349,6 @@ class CMTile : public Tile<T>
             size_t lda(m_leadingDim);
             size_t ldb(that.leadingDim());
 
-#pragma omp parallel for
             for (unsigned j = 0; j < nCols; ++j) {
                 T*       a(a0+j*lda);            
                 T const* b(b0+j*ldb);            

@@ -101,6 +101,7 @@ class TileArray
          assert(that.nRowTiles() == m_nRowTiles);
          assert(that.nColTiles() == m_nColTiles);
 
+#pragma omp parallel for
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
                  tile(bi,bj) -= that(bi,bj);
@@ -166,7 +167,7 @@ class TileArray
          }
       }
 
-
+ 
       void fill() 
       {
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
@@ -199,6 +200,18 @@ class TileArray
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
                  tile(bi,bj).scale(t);
+             }
+         }
+      }
+
+
+      // This will blow up if the Tiles are not all dense
+      void reduce() 
+      {
+         for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
+              for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
+                 CMTile<T>& cmt = dynamic_cast<CMTile<T>&>(tile(bi,bj));
+                 set(bi,bj,cmt.reduce());
              }
          }
       }

@@ -45,6 +45,9 @@
 #include <cstring>
 #include <math.h>
 #include "mkl.h"
+#ifdef MYMPI
+#include <mpi.h>
+#endif 
 
 #include <iostream>
 #include <fstream>
@@ -58,6 +61,7 @@
 int diagonalize(TileArray<double>&, unsigned const subspace, const double Emin, const double Emax);
 int sample();
 int stephen();
+int stephen100();
 
 std::vector<double> readFile(std::string const& filename)
 {
@@ -82,10 +86,22 @@ std::vector<double> readFile(std::string const& filename)
 bool run_sample  = false;
 bool run_stephen = true;
 
-int main()
+int main(int argc, char **argv)
 {
-    if (run_sample) return sample();
-    if (run_stephen) return stephen();
+    int rank(1),numprocs;
+#ifdef MYMPI
+    MPI_Init(&argc,&argv);
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+#endif
+ 
+    //if (run_sample) return sample();
+    if (run_stephen && rank==1) {
+        int rv = stephen100();
+#ifdef MYMPI
+        MPI_Finalize();
+#endif
+        return rv;
+    }
 
     int rv(0);
     unsigned const nBlocks(1);
@@ -94,8 +110,6 @@ int main()
     unsigned const subspace(8);
     
     std::vector<int> stripes{-3,-2,-1,0,1,2,3};
-
-
 
 
         // Striped test matrix
@@ -159,7 +173,7 @@ int main()
 
 
 
-int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin, const double Emax)
+int diagonalize(TileArray<double>& A, TileArray<complex>& bmAc, unsigned const subspace, const double Emin, const double Emax)
 {
     const MKL_INT N = A.nCols();
 
@@ -171,8 +185,6 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
     double* Sq   = new double[subspace*subspace];
 
     complex* workc = new complex[N*subspace];
-
-    std::cout << "Subspace size: " << subspace << std::endl;
     
     double  epsout(0.0);
     MKL_Complex16 Ze;
@@ -182,6 +194,8 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
     MKL_INT info(0);
     MKL_INT ijob(-1);
     MKL_INT fpm[128];
+
+    std::cout << "Subspace size: " << subspace << std::endl;
 
     feastinit(fpm);
 
@@ -241,10 +255,6 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
                // Solve (ZeB-A) caux = workc[0:N-1][0:M0-1]
                // and put result into  workc
 
-               // Make a complex copy of A (inefficient!!)
-               TileArray<complex> bmAc;
-               bmAc.from(A);
-               bmAc.scale(-1.0);
                bmAc.addToDiag(Ze); 
 
                unsigned nTiles(bmAc.nRowTiles());
@@ -265,8 +275,8 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
                //bmBc.print("Bound work director");
 
                //int rc = jacobi_solver(bmAc, bmQc, bmBc);
-               int rc = conjugate_gradient(bmAc, bmQc, bmBc);
-               //int rc = conjugate_gradientPC(bmAc, bmQc, bmBc);
+               //int rc = conjugate_gradient(bmAc, bmQc, bmBc);
+               int rc = conjugate_gradientPC(bmAc, bmQc, bmBc);
 
                if (rc < 0) {
                   //Log::error("Jacobi failed to converge");
@@ -276,6 +286,7 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
                //for (unsigned i = 0; i < 27; ++i) {
                //     std::cout << "Workc[" << i << "] = " << workc[i] << std::endl;
                //}
+               bmAc.addToDiag(-Ze); 
 
             } break;
 
@@ -386,18 +397,73 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
 }
 
 
-int stephen()
+int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin, const double Emax)
 {
-   std::vector<double> mat(readFile("mat3"));
-   unsigned n2(mat.size());
+    TileArray<complex> bmAc;
+    bmAc.from(A);
+    bmAc.scale(-1.0);
+    bmAc.info("Complex copied info");
+    return diagonalize(A, bmAc, subspace, Emin, Emax);
+}
 
-   unsigned n(std::sqrt(n2)); 
-   if (n*n != n2) {
-      std::cout << "Failed to determine matrix size" << std::endl;
+
+
+int stephen100()
+{
+   unsigned nBlocks  = 11;
+   //unsigned blocks[] = {1, 248, 248, 247, 247, 246, 247, 248, 247, 246, 245};
+   //std::string fname("mat250");
+
+   unsigned blocks[] =  {1, 510, 510, 509, 509, 508, 509, 510, 509, 508, 507};
+   std::string fname("mat512");
+
+   TileArray<double> TA(nBlocks,nBlocks);
+   for (unsigned bi = 0; bi < TA.nRowTiles(); ++bi) {
+       for (unsigned bj = 0; bj < TA.nColTiles(); ++bj) {
+           TA.set(bi,bj, new CMTile<double>(blocks[bi],blocks[bj]));
+       }
    }
 
-   std::cout << "matrix size is " << n << std::endl;
+   std::vector<double> mat(readFile(fname));
+   std::cout << "Number of matrix entries read: " << mat.size() << std::endl;
+   TA.bind(&mat[0]);
+   TA.info("Stephen Matrix");
+   Timer timer;
 
+   timer.start();
+   eigenvalues(TA);
+   timer.stop();
+   std::cout << "LAPACK time: " << timer.format() << std::endl;
+/*
+*/
+
+   unsigned subspace(5);
+   double Emin(46.0);
+   double Emax(55.0);
+
+   //Emin = 46.0;
+   //Emax = 47.0;
+
+   TA.reduce();
+
+    TileArray<complex> bmAc;
+    bmAc.from(TA);
+    bmAc.scale(-1.0);
+    bmAc.info("Complex copied info");
+
+   timer.start();
+   int rv = diagonalize(TA, bmAc, subspace, Emin, Emax);
+   timer.stop();
+
+   std::cout << "FEAST time: " << timer.format() << std::endl;
+
+   return rv;
+}
+
+
+
+int stephen()
+{
    unsigned nBlocks  = 11;
    unsigned blocks[] = { 1, 6, 6, 5, 5, 4, 5, 6, 5, 4, 3};
 
@@ -408,21 +474,21 @@ int stephen()
        }
    }
 
+   std::vector<double> mat(readFile("mat10"));
+   std::cout << "Number of matrix entries read: " << mat.size() << std::endl;
    TA.bind(&mat[0]);
-   TA.info("Stephen Matrix");
-   //TA.print();
-
-   unsigned subspace(5);
-   double const Emin(46.0);
-   double const Emax(55.0);
 
    Timer timer;
-
    timer.start();
    eigenvalues(TA);
    timer.stop();
    std::cout << "LAPACK time: " << timer.format() << std::endl;
 
+   unsigned subspace(5);
+   double const Emin(46.0);
+   double const Emax(55.0);
+
+   //TA.reduce();
 
    timer.start();
    int rv = diagonalize(TA, subspace, Emin, Emax);
@@ -431,11 +497,6 @@ int stephen()
    std::cout << "FEAST time: " << timer.format() << std::endl;
 
    return rv;
-/*
-46.5190624681
-46.5190624704
-*/
-
 }
 
 

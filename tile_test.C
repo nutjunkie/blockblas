@@ -187,22 +187,26 @@ int test_6()
    StripedTile<double> A(10,6,stripes);
    A.fill(StencilFunctor<double>());
 
-   CMTile<double> B(6,8), C(10,8);
+   CMTile<double> B(6,8), C(10,8), Cc(10,8);
    B.fill(df);
    C.fill0();
+   Cc.fill0();
 
-   A.print("Matrix A");
    B.print("Matrix B");
 
-   tile_product(A,B,0.0,C);
-   C.print("Product Matrix C");
-
    CMTile<double> D(10,6);
-   CMTile<double> Cc(C);
-
    D.from(A);
+
+   A.print("Matrix A");
+   tile_product(A,B,0.0,C);
+   C.print("Product Matrix A.B");
+
+   D.print("Dense Matrix D");
    tile_product(D,B,0.0,Cc);
+   Cc.print("Product Matrix D.B");
+
    C -= Cc;
+   //C.print("Difference :Matrix C");
    if (std::abs(C.norm2()) > 1e-8) {
       std::cout << "FAILED: norm2 =" << C.norm2() << std::endl;
       return 1;
@@ -236,6 +240,8 @@ int test_7()
    CMTile<double> B(10,12);
    B.bind(a);
    B.print("Buffer contents ");
+
+   return 0;
 }
 
 
@@ -629,9 +635,12 @@ int test_17()
    C.print("Product Matrix C");
 
    CMTile<double> D(A);
+   tile_product(D,B,-1.0,C);
 
-   tile_product(D,B,0.0,C);
-   C.print("Product Matrix C");
+   if (std::abs(C.norm2()) > 1e-8) {
+      std::cout << "FAILED: norm2 =" << C.norm2() << std::endl;
+      return 1;
+   }
 
    return 0;
 }
@@ -652,8 +661,10 @@ int main()
       + test_3()
       + test_4()
       + test_5()
+*/
       + test_6()
       + test_7()
+/*
       + test_8()
       + test_9()
       + test_10<double>()

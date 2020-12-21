@@ -20,8 +20,8 @@ template <class T>
 class Tile
 {
    public:
-      template <class T>
-      friend  Tile<T>* TileFactory(Tile<T> const& that);
+      template <class U>
+      friend  Tile<U>* TileFactory(Tile<U> const& that);
 
 
    public:

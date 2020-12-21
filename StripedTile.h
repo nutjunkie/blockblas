@@ -15,6 +15,9 @@
 
 
 template <class T>
+class CMTile;
+
+template <class T>
 class StripedTile : public Tile<T>
 {
    public:
@@ -28,6 +31,34 @@ class StripedTile : public Tile<T>
       {
          copy(that);
       }
+
+
+      StripedTile(CMTile<T> const& that, std::vector<int> const& stripes)
+      {
+         m_stripes = stripes;
+         size_t nr(that.nRows());
+         size_t nc(that.nCols());
+         this->resize(nr, nc);
+
+         if (that.isBound()) {
+            this->alloc();
+            size_t m(std::min(nr,nc));
+
+            for (unsigned s = 0; s < stripes.size(); ++s) {
+                int offset(stripes[s]);
+                int len = (offset < 0) ? std::min(nr+offset, nc)
+                                       : std::min(nr, nc-offset);
+                int ioff = std::max(0,-offset);
+                int joff = std::max(0, offset);
+                
+                T* d0 = &(this->m_data[s*m]);
+                for (unsigned ij = 0; ij < len; ++ij) {
+                    d0[ij] = that(ij+ioff,ij+joff);
+                }
+            }
+         }
+      }
+
 
       StorageT storage() const
       {
@@ -94,6 +125,7 @@ class StripedTile : public Tile<T>
       }
 
 
+
    protected:
       void copy(Tile<T> const& that)
       {
@@ -109,13 +141,26 @@ class StripedTile : public Tile<T>
       void copy(StripedTile<T> const& that)
       {
          m_stripes = that.m_stripes;
-         resize(that.nRows(), that.nCols());
+         this->resize(that.nRows(), that.nCols());
 
          if (that.isBound()) {
             this->alloc();
             memcpy(this->m_data, that.m_data, this->m_nData*sizeof(T));
          }
       }
+
+
+      void copy(CMTile<T> const& that)
+      {
+         m_stripes = that.m_stripes;
+         this->resize(that.nRows(), that.nCols());
+
+         if (that.isBound()) {
+            this->alloc();
+            memcpy(this->m_data, that.m_data, this->m_nData*sizeof(T));
+         }
+      }
+
 
 
    private:

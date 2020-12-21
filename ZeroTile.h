@@ -10,6 +10,9 @@
 
 
 template <class T>
+class CMTile;
+
+template <class T>
 class ZeroTile : public Tile<T>
 {
    public:
@@ -17,7 +20,13 @@ class ZeroTile : public Tile<T>
       { }
 
 
-      ZeroTile(ZeroTile const& that)
+      ZeroTile(ZeroTile<T> const& that)
+      {
+         copy(that);
+      }
+
+
+      ZeroTile(CMTile<T> const& that)
       {
          copy(that);
       }

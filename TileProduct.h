@@ -29,9 +29,11 @@ void tile_product(DiagonalTile<T> const& A, CMTile<T> const& B, T const alpha, C
    T const* b(B.data());
    T*       c(C.data());
 
+   C.scale(alpha);
+
    for (unsigned j = 0; j < nc; ++j) {
        for (unsigned i = 0; i < nr; ++i) {
-           c[i+ldc*j] = a[i] * b[i+j*ldb] + alpha*c[i+ldc*j];
+           c[i+ldc*j] += a[i] * b[i+j*ldb];
        }
    }
 }
@@ -55,6 +57,8 @@ void tile_product(StripedTile<T> const& A, CMTile<T> const& B, T const alpha, CM
 
    std::vector<int> const& stripes(A.stripes());
 
+   C.scale(alpha);
+
    for (unsigned s = 0; s < stripes.size(); ++s) {
        int offset(stripes[s]);
        int offC(std::max(0,-offset));
@@ -63,12 +67,11 @@ void tile_product(StripedTile<T> const& A, CMTile<T> const& B, T const alpha, CM
        int len = (offset < 0) ? std::min(rowsA+offset, colsA)
                               : std::min(rowsA, colsA-offset);
        T const* a0(&a[s*m]);
-#pragma omp parallel for
        for (unsigned j = 0; j < colsC; ++j) {
            T const* b0(&b[offB+j*ldb]);
            T*       c0(&c[offC+j*ldc]);
            for (unsigned i = 0; i < len; ++i) {
-               c0[i] = a0[i]*b0[i] + alpha*c0[i];
+               c0[i] += a0[i]*b0[i];
            }   
        }   
    }   
@@ -76,30 +79,30 @@ void tile_product(StripedTile<T> const& A, CMTile<T> const& B, T const alpha, CM
 
 
 template <class T>
-void tile_product(Tile<T> const& A, Tile<T> const& B, T const alpha, Tile<T>& C)
+void tile_product(Tile<T> const& A, Tile<T> const& B, T const gamma, Tile<T>& C)
 {
    CMTile<T> const& b = dynamic_cast<CMTile<T> const&>(B);
    CMTile<T>& c = dynamic_cast<CMTile<T>&>(C);
 
    switch (A.storage()) {
       case Zero: {
+         C.scale(gamma);
          return;
       } break;
 
       case Diagonal: {
          DiagonalTile<T> const& a = dynamic_cast<DiagonalTile<T> const&>(A);
-         tile_product(a, b, alpha, c);
+         tile_product(a, b, gamma, c);
       } break;
-
 
       case Striped: {
          StripedTile<T> const& a = dynamic_cast<StripedTile<T> const&>(A);
-         tile_product(a, b, alpha, c);
+         tile_product(a, b, gamma, c);
       } break;
 
       case CMDense: {
          CMTile<T> const& a = dynamic_cast<CMTile<T> const&>(A);
-         tile_product(a, b, alpha, c);
+         tile_product(a, b, gamma, c);
       } break;
 
       default:
@@ -118,7 +121,7 @@ void product(TileArray<T> const& A, TileArray<T> const& B, TileArray<T>& C)
    assert(A.nRowTiles() == C.nRowTiles());
    assert(A.nColTiles() == B.nRowTiles());
    assert(B.nColTiles() == C.nColTiles());
-#pragma omp parallel for
+#pragma omp parallel for 
    for (unsigned bi = 0; bi < A.nRowTiles(); ++bi) {
        for (unsigned bj = 0; bj < B.nColTiles(); ++bj) {
            for (unsigned k = 0; k < A.nColTiles(); ++k) {

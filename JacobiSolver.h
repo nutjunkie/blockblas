@@ -6,7 +6,6 @@
 #include "TileArray.h"
 #include "TileProduct.h"
 
-#define MAX_ITER      20
 
 template <class T>
 int diagonalDominance(TileArray<T> const& A)

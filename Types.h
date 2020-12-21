@@ -10,13 +10,15 @@ typedef std::complex<double> complex;
 typedef std::complex<double> complex;
 #endif
 
-#ifdef __INTEL_COMPILER
-#include <mkl.h>
-#else
+#ifdef __MAC_OS__
 #include <veclib/veclib.h>
+#else
+#include <mkl.h>
 #endif
 
 #include <string>
+
+#define MAX_ITER 50
 
 enum StorageT { Zero, Diagonal, Banded, Striped, CMDense, RMDense, Dense }; 
 enum LayoutT { RowMajor, ColumnMajor };

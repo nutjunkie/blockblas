@@ -6,8 +6,6 @@
 #include "TileArray.h"
 #include "TileProduct.h"
 
-#define MAX_ITER      50
-
 
 // Solves A.x = b using the conjugate gradient method.
 template <class T>
@@ -158,12 +156,12 @@ int conjugate_gradientPC(TileArray<T> const& A, TileArray<T>& X, TileArray<T> co
    // S template
    TileArray<T> S(nBlocks,1);
 
-   CMTile<T>** M = new CMTile<T>*[nBlocks];
-   //DiagonalTile<T>** M = new DiagonalTile<T>*[nBlocks];
+   //CMTile<T>** M = new CMTile<T>*[nBlocks];
+   DiagonalTile<T>** M = new DiagonalTile<T>*[nBlocks];
 
    for (unsigned i = 0; i < nBlocks; ++i) {
-       M[i] = new CMTile<T>(A(i,i));
-       //M[i] = new DiagonalTile<T>(A(i,i));
+       //M[i] = new CMTile<T>(A(i,i));
+       M[i] = new DiagonalTile<T>(A(i,i));
        M[i]->invert();
        S.set(i,0, new CMTile<T>(B(i,0).nRows(),B(i,0).nCols()));
    }
@@ -207,10 +205,13 @@ int conjugate_gradientPC(TileArray<T> const& A, TileArray<T>& X, TileArray<T> co
 
    R.scale(-one);
    product(A,X,R);
+   //R.print("R mat");
 
    for (unsigned i = 0; i < nBlocks; ++i) {
        tile_product(*M[i], R(i,0), zero, Z(i,0));
+       //M[i]->print("M inverse");
    }
+   //Z.print("Z mat");
 
    //std::cout << "Pointers: " << r.data() << " <-> " << R(0,0).data() << std::endl;
    //r.print("r");
@@ -219,6 +220,7 @@ int conjugate_gradientPC(TileArray<T> const& A, TileArray<T>& X, TileArray<T> co
 
    p = z;
    p.scale(-one);
+   //P.print("P mat");
 
    double res(0.0);
    unsigned iter(0);
@@ -227,6 +229,7 @@ int conjugate_gradientPC(TileArray<T> const& A, TileArray<T>& X, TileArray<T> co
        // Line 1:
        Q.fill();                                    // Q <- 0
        product(A,P,Q);                              // Q <- A.P
+       //Q.print("Q mat");
 
        // Line 2:
        tile_product(p, q, zero, psi, CblasTrans); // psi <- p^t.q
