@@ -37,8 +37,9 @@ int diagonalDominance(TileArray<T> const& A)
 
 // Solves A.x = b using an interative Jacobi algorithm
 template <class T>
-int jacobi_solver(TileArray<T> const& A, TileArray<T>& x, TileArray<T> const& b)
+int jacobi_solver(TileArray<T>& A, TileArray<T>& x, TileArray<T> const& b, T const root)
 {
+   A.addToDiag(root);
    //diagonalDominance(A);
 
    //A.print("A matrix ---");
@@ -106,6 +107,7 @@ int jacobi_solver(TileArray<T> const& A, TileArray<T>& x, TileArray<T> const& b)
    }
 
 
+   A.addToDiag(-root);
    return iter;
 }
 

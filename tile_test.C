@@ -546,7 +546,6 @@ int test_15()
 
    A.bind(pA.data());
 
-   A.addToDiag(10.0);
 
 
    for (unsigned ev = 0; ev < nEigen; ++ev) {
@@ -557,7 +556,7 @@ int test_15()
    b.print("b vector");
    x.print("x vector");
 
-   int rc = conjugate_gradient(A,x,b);
+   int rc = conjugate_gradient(A,x,b,10.0);
 
    if (rc < 0) {
       std::cout << "ERROR: ConjugateSolver failed to  converged in " << -rc << " cycles" << std::endl;
@@ -661,10 +660,8 @@ int main()
       + test_3()
       + test_4()
       + test_5()
-*/
       + test_6()
       + test_7()
-/*
       + test_8()
       + test_9()
       + test_10<double>()
@@ -672,9 +669,11 @@ int main()
       + test_12()
       + test_14()
       + test_16()
-      + test_15<double>()
 */
+      + test_15<double>()
+/*
       + test_17()
+*/
    ;
 
    std::cout << std::endl;

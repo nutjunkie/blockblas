@@ -1,37 +1,3 @@
-/*
-! Example program for using Intel MKL Extended Eigensolvers (sparse format).
-!
-! Consider the matrix A:
-!
-!                 |  5   2   1   1   0   0   0   0   0   0   0  |
-!                 |  2   6   3   1   1   0   0   0   0   0   0  |
-!                 |  1   3   6   3   1   1   0   0   0   0   0  |
-!                 |  1   1   3   6   3   1   1   0   0   0   0  |
-!                 |  0   1   1   3   6   3   1   1   0   0   0  |
-!    A    =       |  0   0   1   1   3   6   3   1   1   0   0  |,
-!                 |  0   0   0   1   1   3   6   3   1   1   0  |
-!                 |  0   0   0   0   1   1   3   6   3   1   1  |
-!                 |  0   0   0   0   0   1   1   3   6   3   1  |
-!                 |  0   0   0   0   0   0   1   1   3   6   2  |
-!                 |  0   0   0   0   0   0   0   1   1   2   5  |
-!
-! stored as sparse matrix  matrix (DOUBLE PRECISION version).
-! B is a unit matrix:
-!
-!                 |  1   0   0   0   0   0   0   0   0   0   0  |
-!                 |  0   1   0   0   0   0   0   0   0   0   0  |
-!                 |  0   0   1   0   0   0   0   0   0   0   0  |
-!                 |  0   0   0   1   0   0   0   0   0   0   0  |
-!                 |  0   0   0   0   1   0   0   0   0   0   0  |
-!    B    =       |  0   0   0   0   0   1   0   0   0   0   0  |.
-!                 |  0   0   0   0   0   0   1   0   0   0   0  |
-!                 |  0   0   0   0   0   0   0   1   0   0   0  |
-!                 |  0   0   0   0   0   0   0   0   1   0   0  |
-!                 |  0   0   0   0   0   0   0   0   0   1   0  |
-!                 |  0   0   0   0   0   0   0   0   0   0   1  |
-!
-!*******************************************************************************/
-
 #include "TileArray.h"
 #include "JacobiSolver.h"
 #include "ConjugateSolver.h"
@@ -86,87 +52,23 @@ std::vector<double> readFile(std::string const& filename)
 bool run_sample  = false;
 bool run_stephen = true;
 
+
 int main(int argc, char **argv)
 {
-    int rank(1),numprocs;
+    int rank(0), numprocs(1), rv(0);
 #ifdef MYMPI
     MPI_Init(&argc,&argv);
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 #endif
  
     //if (run_sample) return sample();
-    if (run_stephen && rank==1) {
-        int rv = stephen100();
+    //if (run_stephen && rank == 0) {
+    if (run_stephen) {
+        rv = stephen100();
 #ifdef MYMPI
         MPI_Finalize();
 #endif
-        return rv;
     }
-
-    int rv(0);
-    unsigned const nBlocks(1);
-    unsigned const blockSize(21);
-    unsigned const matsize(nBlocks*blockSize);
-    unsigned const subspace(8);
-    
-    std::vector<int> stripes{-3,-2,-1,0,1,2,3};
-
-
-        // Striped test matrix
-        StripedTile<double> A(matsize,matsize, stripes);
-        A.fill(StencilFunctor<double>(0.1));
-        //A.fill(TestFunctor());
-
-        A.info("A Matrix");
-        A.print("A Matrix");
-
-    
-        TileArray<double> bA(nBlocks,nBlocks);
-        for (unsigned bi = 0; bi < bA.nRowTiles(); ++bi) {
-            for (unsigned bj = 0; bj < bA.nColTiles(); ++bj) {
-                bA.set(bi,bj, new CMTile<double>(blockSize,blockSize));
-            }
-        }
-
-        CMTile<double> dense(A);
-        bA.bind(dense.data());
-
-
-    TileArray<double> bB(nBlocks,nBlocks);
-    for (unsigned bi = 0; bi < bB.nRowTiles(); ++bi) {
-        for (unsigned bj = 0; bj < bB.nColTiles(); ++bj) {
-            if (bi == bj) {
-               bB.set(bi,bj, new CMTile<double>(blockSize,blockSize));
-               bB(bi,bj).fill(TestFunctor());
-               bB(bi,bj).scale(1.0/(bi+bj+1));
-            }else {
-               //bB.set(bi,bj, new StripedTile<double>(blockSize,blockSize,stripes));
-               //bB(bi,bj).fill(StencilFunctor<double>(0.1));
-               bB.set(bi,bj, new ZeroTile<double>(blockSize,blockSize));
-               bB(bi,bj).fill0();
-            }
-        }
-    }
-
-   // bB.print("bB Matrix");
-
-    double const Emin(5.00);
-    double const Emax(5.5);
-
-    Timer timer;
-    bB.info();
-
-    timer.start();
-    eigenvalues(bA);
-    timer.stop();
-    std::cout << "LAPACK time: " << timer.format() << std::endl;
-
-
-    timer.start();
-    rv = diagonalize(bA, subspace, Emin, Emax);
-    timer.stop();
-
-    std::cout << "FEAST time: " << timer.format() << std::endl;
 
     return rv;
 }
@@ -255,8 +157,6 @@ int diagonalize(TileArray<double>& A, TileArray<complex>& bmAc, unsigned const s
                // Solve (ZeB-A) caux = workc[0:N-1][0:M0-1]
                // and put result into  workc
 
-               bmAc.addToDiag(Ze); 
-
                unsigned nTiles(bmAc.nRowTiles());
                TileArray<complex> bmBc(nTiles,1);
                TileArray<complex> bmQc(nTiles,1);
@@ -274,9 +174,10 @@ int diagonalize(TileArray<double>& A, TileArray<complex>& bmAc, unsigned const s
                bmBc.bind(workc);
                //bmBc.print("Bound work director");
 
-               //int rc = jacobi_solver(bmAc, bmQc, bmBc);
-               //int rc = conjugate_gradient(bmAc, bmQc, bmBc);
-               int rc = conjugate_gradientPC(bmAc, bmQc, bmBc);
+               complex zero(0.0);
+               //int rc = jacobi_solver(bmAc, bmQc, bmBc, Ze);
+               int rc = conjugate_gradient(bmAc, bmQc, bmBc, Ze);
+               //int rc = conjugate_gradientPC(bmAc, bmQc, bmBc);
 
                if (rc < 0) {
                   //Log::error("Jacobi failed to converge");
@@ -286,7 +187,6 @@ int diagonalize(TileArray<double>& A, TileArray<complex>& bmAc, unsigned const s
                //for (unsigned i = 0; i < 27; ++i) {
                //     std::cout << "Workc[" << i << "] = " << workc[i] << std::endl;
                //}
-               bmAc.addToDiag(-Ze); 
 
             } break;
 
@@ -430,11 +330,11 @@ int stephen100()
    TA.info("Stephen Matrix");
    Timer timer;
 
+/*
    timer.start();
    eigenvalues(TA);
    timer.stop();
    std::cout << "LAPACK time: " << timer.format() << std::endl;
-/*
 */
 
    unsigned subspace(5);

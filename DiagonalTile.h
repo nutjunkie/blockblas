@@ -86,6 +86,14 @@ class DiagonalTile : public Tile<T>
       }
 
 
+      void addToDiag(T const t)
+      {
+         for (size_t i = 0; i < this->m_nData; ++i) {
+             this->m_data[i] += t;
+         }
+      }
+
+
    protected:
       void copy(Tile<T> const& that)
       {

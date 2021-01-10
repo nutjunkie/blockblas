@@ -1,13 +1,7 @@
-#CXX = mpiicc
-CXX = icc
-#CXXFLAGS = -std=c++11 -g -pg  -fopenmp 
+CXX = mpiicc -DMYMPI
+#CXX = icc
 CXXFLAGS = -std=c++11 -g -pg  -O2 -qopenmp -funroll-loops -ffast-math
 LIBS = -mkl 
-
-#CXX = g++
-#CXXFLAGS = -std=c++11 -g -pg  -fopenmp 
-#LIBS = -lintel_mkl
-
 
 
 HEADERS = Tile.h ZeroTile.h DiagonalTile.h StripedTile.h CMTile.h util.h \
