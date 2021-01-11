@@ -78,6 +78,18 @@ class CMTile : public Tile<T>
       }
 
 
+      void getReal(CMTile<double>&) const;
+
+
+      void getImag(CMTile<double>&) const;
+
+
+      void addReal(CMTile<double> const&);
+
+
+      void addImag(CMTile<double> const&);
+
+
       Tile<T>& operator+=(Tile<T> const& that)
       {   
          switch (that.storage()) {
@@ -306,8 +318,6 @@ class CMTile : public Tile<T>
       }
 
 
-
-   protected:
       void resize(size_t nRows, size_t nCols)
       {
           this->dealloc();
@@ -316,6 +326,9 @@ class CMTile : public Tile<T>
           m_leadingDim  = nRows;
       }
 
+
+
+   protected:
 
       void copy(Tile<T> const& that)
       {

@@ -12,8 +12,9 @@
 
 
 //Computes A.B = C
-template <class T>
-void tile_product(CMTile<T> const& A, CMTile<T> const& B, T const c, CMTile<T>& C, CBLAS_TRANSPOSE const Atrans = CblasNoTrans);
+template <class T, class U>
+void tile_product(CMTile<U> const& A, CMTile<T> const& B, 
+   T const c, CMTile<T>& C, CBLAS_TRANSPOSE const Atrans = CblasNoTrans);
 
 
 template <class T>
@@ -113,10 +114,11 @@ void tile_product(Tile<T> const& A, Tile<T> const& B, T const gamma, Tile<T>& C)
 
 
 
+
 // Note these product functions *accumulate* into C.
 // C must be initialized if this is not what you want.
-template <class T>
-void product(TileArray<T> const& A, TileArray<T> const& B, TileArray<T>& C)
+template <class T, class U>
+void product(TileArray<U> const& A, TileArray<T> const& B, TileArray<T>& C)
 {
    assert(A.nRowTiles() == C.nRowTiles());
    assert(A.nColTiles() == B.nRowTiles());
@@ -152,5 +154,6 @@ void product_sans_diagonal(TileArray<T> const& A, TileArray<T> const& B, TileArr
        }
   }
 }
+
 
 #endif

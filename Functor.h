@@ -99,6 +99,7 @@ class TestFunctor : public Functor<double>
       unsigned m_colOffset;
 };
 
+
 class ComplexTestFunctor : public Functor<complex>
 {
    public:

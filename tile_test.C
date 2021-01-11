@@ -605,6 +605,7 @@ int test_16()
    return 0;
 }
 
+
 int test_17()
 {
    print_header(17, "Diagonal Tile product");
@@ -645,6 +646,116 @@ int test_17()
 }
 
 
+int test_18()
+{
+   print_header(18, "Real/Imaginary parts");
+
+   CMTile<complex> A(10,5);
+   A.fill(DebugFunctor<complex>());
+   A.scale(complex(2.0,1.5));
+
+   CMTile<double>  B(10,5);
+   B.fill(DebugFunctor<double>());
+
+   B.scale(2.0);
+
+   CMTile<double>  Ar;
+
+   A.print("Complex Matrix");
+
+   A.getReal(Ar);
+   Ar.print("Real part");
+   B -= Ar;
+
+   if (std::abs(B.norm2()) > 1e-8) {
+      std::cout << "FAILED: norm2 =" << B.norm2() << std::endl;
+      return 1;
+   }
+
+   B.fill(DebugFunctor<double>());
+   B.scale(1.5);
+
+   A.getImag(Ar);
+   Ar.print("Imag part");
+
+   B -= Ar;
+   if (std::abs(B.norm2()) > 1e-8) {
+      std::cout << "FAILED: norm2 =" << B.norm2() << std::endl;
+      return 1;
+   }
+
+   return 0;
+}
+
+
+int test_19()
+{
+   print_header(19, "Real/Imaginary parts");
+
+   CMTile<complex> A(10,5);
+   A.fill(DebugFunctor<complex>());
+   A.scale(complex(2.0,1.5));
+
+   CMTile<double>  B(10,5);
+   B.fill(DebugFunctor<double>());
+   B.scale(-2.0);
+
+   A.addReal(B);
+
+   B.fill(DebugFunctor<double>());
+   B.scale(-1.5);
+
+   A.addImag(B);
+   A.print("zeroed matrix");
+
+   if (std::abs(A.norm2()) > 1e-8) {
+      std::cout << "FAILED: norm2 =" << A.norm2() << std::endl;
+      return 1;
+   }
+
+   return 0;
+}
+
+
+int test_20()
+{
+   print_header(20, "Real*Imaginary product");
+
+   CMTile<double>  A(10,5);
+   CMTile<complex> B(5, 8);
+   CMTile<complex> C1(10,8);
+   CMTile<complex> C2(10,8);
+   CMTile<complex> D(10,5);
+
+   complex zero(0.0);
+   complex scale(1.0,1.5);
+
+   A.fill(DebugFunctor<double>());
+   B.fill(DebugFunctor<complex>());
+   B.scale(scale);
+   D.fill0();
+   D.addReal(A);
+   C1.alloc();
+   C2.alloc();
+
+
+   tile_product(D, B, zero, C2);
+   C2.print("Complex product");
+
+   tile_product(A, B, zero, C1);
+   C1.print("Real product");
+
+   C1 -= C2;
+
+   if (std::abs(C1.norm2()) > 1e-8) {
+      std::cout << "FAILED: norm2 =" << C1.norm2() << std::endl;
+      return 1;
+   }
+
+   return 0;
+}
+
+
 
 
 
@@ -654,7 +765,6 @@ int main()
    int ok(0);
 
    ok = ok 
-/*
       + test_1()
       + test_2()
       + test_3()
@@ -669,11 +779,15 @@ int main()
       + test_12()
       + test_14()
       + test_16()
+/*
 */
       + test_15<double>()
 /*
       + test_17()
 */
+      + test_18()
+      + test_19()
+      + test_20()
    ;
 
    std::cout << std::endl;

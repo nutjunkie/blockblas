@@ -211,3 +211,98 @@ CMTile<complex>::CMTile(TileArray<complex> const& TA) : Tile<complex>(TA.nRows()
    }
 }
 
+
+
+template <>
+void CMTile<complex>::getReal(CMTile<double>& that) const
+{
+   size_t nRows(this->nRows());
+   size_t nCols(this->nCols());
+
+   that.resize(nRows, nCols);
+   that.alloc();
+
+   double const* a0 = reinterpret_cast<double const*>(this->data());
+   double*       b0(that.data());
+
+   size_t lda(m_leadingDim);
+   size_t ldb(that.leadingDim());
+
+   for (unsigned j = 0; j < nCols; ++j) {
+       double const* a(a0+2*j*lda);            
+       double*       b(b0+  j*ldb);            
+       for (unsigned i = 0; i < nRows; ++i) {
+           b[i] = a[2*i];
+       }
+   }
+}
+
+
+template <>
+void CMTile<complex>::getImag(CMTile<double>& that) const
+{
+   size_t nRows(this->nRows());
+   size_t nCols(this->nCols());
+
+   that.resize(nRows, nCols);
+   that.alloc();
+
+   double const* a0 = reinterpret_cast<double const*>(this->data());
+   double*       b0(that.data());
+
+   size_t lda(m_leadingDim);
+   size_t ldb(that.leadingDim());
+
+   for (unsigned j = 0; j < nCols; ++j) {
+       double const* a(a0+1+2*j*lda);            
+       double*       b(b0+  j*ldb);            
+       for (unsigned i = 0; i < nRows; ++i) {
+           b[i] = a[2*i];
+       }
+   }
+}
+
+
+template <>
+void CMTile<complex>::addReal(CMTile<double> const& that)
+{
+   //asserts
+
+   size_t nRows(this->nRows());
+   size_t nCols(this->nCols());
+   size_t lda(m_leadingDim);
+   size_t ldb(that.leadingDim());
+
+   double*       a0 = reinterpret_cast<double*>(this->data());
+   double const* b0(that.data());
+
+   for (unsigned j = 0; j < nCols; ++j) {
+       double*       a(a0 +2*j*lda);            
+       double const* b(b0+  j*ldb);            
+       for (unsigned i = 0; i < nRows; ++i) {
+           a[2*i] += b[i];
+       }
+   }
+}
+
+template <>
+void CMTile<complex>::addImag(CMTile<double> const& that)
+{
+   //asserts
+
+   size_t nRows(this->nRows());
+   size_t nCols(this->nCols());
+   size_t lda(m_leadingDim);
+   size_t ldb(that.leadingDim());
+
+   double*       a0 = reinterpret_cast<double*>(this->data());
+   double const* b0(that.data());
+
+   for (unsigned j = 0; j < nCols; ++j) {
+       double*       a(a0+1+2*j*lda);            
+       double const* b(b0+  j*ldb);            
+       for (unsigned i = 0; i < nRows; ++i) {
+           a[2*i] += b[i];
+       }
+   }
+}
