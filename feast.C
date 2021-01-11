@@ -154,16 +154,16 @@ int diagonalize(TileArray<double>& A, TileArray<complex>& bmAc, unsigned const s
 //             std::cout << "Num RHS:      "<< fpm[23-1] << std::endl;
 //             zC = Ze * zB + zA
 //
-               // Solve (ZeB-A) caux = workc[0:N-1][0:M0-1]
+               // Solve (A-ZeB) caux = -workc[0:N-1][0:M0-1]
                // and put result into  workc
 
-               unsigned nTiles(bmAc.nRowTiles());
+               unsigned nTiles(A.nRowTiles());
                TileArray<complex> bmBc(nTiles,1);
                TileArray<complex> bmQc(nTiles,1);
 
                for (unsigned bi = 0; bi < nTiles; ++bi) {
-                   bmBc.set(bi,0, new CMTile<complex>(bmAc(bi,0).nRows(),M0));
-                   bmQc.set(bi,0, new CMTile<complex>(bmAc(bi,0).nRows(),M0));
+                   bmBc.set(bi,0, new CMTile<complex>(A(bi,0).nRows(),M0));
+                   bmQc.set(bi,0, new CMTile<complex>(A(bi,0).nRows(),M0));
                }
 
                CMTile<complex> vmQc(N,M0);
@@ -172,15 +172,16 @@ int diagonalize(TileArray<double>& A, TileArray<complex>& bmAc, unsigned const s
 
                bmQc.bind(vmQc.data());
                bmBc.bind(workc);
+               bmBc.scale(-1.0);
                //bmBc.print("Bound work director");
 
                complex zero(0.0);
                //int rc = jacobi_solver(bmAc, bmQc, bmBc, Ze);
-               int rc = conjugate_gradient(bmAc, bmQc, bmBc, Ze);
-               //int rc = conjugate_gradientPC(bmAc, bmQc, bmBc);
+               //int rc = conjugate_gradient(bmAc, bmQc, bmBc, -Ze);
+               int rc = conjugate_gradient(A, bmQc, bmBc, -Ze);
 
                if (rc < 0) {
-                  //Log::error("Jacobi failed to converge");
+                  //Log::error("Solver failed to converge");
                }
                
                memcpy(workc, vmQc.data(), N*M0*sizeof(complex));
@@ -301,7 +302,7 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
 {
     TileArray<complex> bmAc;
     bmAc.from(A);
-    bmAc.scale(-1.0);
+    //bmAc.scale(-1.0);
     bmAc.info("Complex copied info");
     return diagonalize(A, bmAc, subspace, Emin, Emax);
 }
@@ -348,7 +349,7 @@ int stephen100()
 
     TileArray<complex> bmAc;
     bmAc.from(TA);
-    bmAc.scale(-1.0);
+    //bmAc.scale(-1.0);
     bmAc.info("Complex copied info");
 
    timer.start();

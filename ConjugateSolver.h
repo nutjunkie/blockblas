@@ -32,12 +32,21 @@ int conjugate_gradient(TileArray<U> const& A, TileArray<T>& X, TileArray<T> cons
    DiagonalTile<T>** M = new DiagonalTile<T>*[nBlocks];
 
    for (unsigned i = 0; i < nBlocks; ++i) {
+       size_t n(A(i,i).nRows());
        //M[i] = new CMTile<T>(A(i,i));
-       M[i] = new DiagonalTile<T>(A(i,i));
+       M[i] = new DiagonalTile<T>(n,n);
+       CMTile<U> const& Aii(static_cast<CMTile<U> const&>(A(i,i)));
+       M[i]->takeDiagonal(Aii);
+
        M[i]->addToDiag(root);
        M[i]->invert();
        S.set(i,0, new CMTile<T>(B(i,0).nRows(),B(i,0).nCols()));
    }
+
+
+   // X Array
+   CMTile<T>    x(N,nRHS);
+   x.bind(X(0,0).data());
 
    // P Array
    TileArray<T> P(S);
@@ -89,7 +98,7 @@ int conjugate_gradient(TileArray<U> const& A, TileArray<T>& X, TileArray<T> cons
 
    //std::cout << "Pointers: " << r.data() << " <-> " << R(0,0).data() << std::endl;
    //r.print("r");
-   tile_product(r, z, zero, rtz, CblasTrans); // rtz <- r^t.z
+   tile_product(r, z, zero, rtz, CblasTrans); // rtz <- r^t.z                        //zgemm
    //rtz.print("RtZ");
 
    p = z;
@@ -108,13 +117,14 @@ int conjugate_gradient(TileArray<U> const& A, TileArray<T>& X, TileArray<T> cons
        //Q.print("Q mat");
 
        // Line 2:
-       tile_product(p, q, zero, psi, CblasTrans); // psi <- p^t.q
+       tile_product(p, q, zero, psi, CblasTrans); // psi <- p^t.q                       //zgemm
        psi.invert();
-       tile_product(psi, rtz, zero, lambda);
+       tile_product(psi, rtz, zero, lambda);                                            //zgemm
        //Lambda.print("lambda mat");
 
        // Line 3:
-       product(P,Lambda,X);  // X <- X + P.Lambda
+       //product(p,lambda,x);  // X <- X + P.Lambda                                       //zgemm
+       product(P,Lambda,X);  // X <- X + P.Lambda                                       //zgemm
        //X.print("X mat");
 
        // Line 4:

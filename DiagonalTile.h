@@ -8,7 +8,7 @@
 
 #include "Tile.h"
 
-template <class T>
+template <class U>
 class CMTile;
 
 template <class T>
@@ -92,6 +92,10 @@ class DiagonalTile : public Tile<T>
              this->m_data[i] += t;
          }
       }
+
+
+      template <typename U>
+      void takeDiagonal(CMTile<U> const&);
 
 
    protected:
