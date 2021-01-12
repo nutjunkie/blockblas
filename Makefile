@@ -1,7 +1,8 @@
-#CXX = mpiicc -DMYMPI
+#CXX = mpiicc -DMYMPI 
 CXX = icc
+#CXXFLAGS = -std=c++11 -g -pg  -O2  -funroll-loops -ffast-math
 CXXFLAGS = -std=c++11 -g -pg  -O2 -qopenmp -funroll-loops -ffast-math
-LIBS = -mkl 
+LIBS = -mkl
 
 
 HEADERS = Tile.h ZeroTile.h DiagonalTile.h StripedTile.h CMTile.h util.h \
@@ -14,7 +15,7 @@ OBJECTS = Tile.o CMTile.o TileProduct.o JacobiSolver.o EigenSolver.o DiagonalTil
 	$(CXX) -c $(LIBS) $(CXXFLAGS) $< -o $@
 
 feast: feast.o $(OBJECTS) 
-	$(CXX) $(CXXFLAGS) -o feast $(LIBS) $(OBJECTS) feast.o
+	$(CXX) $(CXXFLAGS) -o feast $(LIBS) $(OBJECTS) feast.o 
 
 feast.o: feast.C $(HEADERS)
 	$(CXX) -c $(LIBS) $(CXXFLAGS) feast.C -o feast.o
@@ -34,5 +35,13 @@ timing: timing.o $(OBJECTS) $(HEADERS)
 blas: blas.o $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o blas $(LIBS) $(OBJECTS) blas.o
 
+
+
+pfeast.o: feast.C
+	mpiicc -DMYMPI -c  $(CXXFLAGS) feast.C -o pfeast.o 
+
+pfeast: pfeast.o $(OBJECTS) 
+	mpiicc -DMYMPI $(CXXFLAGS) -o pfeast $(LIBS) $(OBJECTS) pfeast.o libpfeast.a 
+
 clean:
-	rm -f $(OBJECTS)  timing.o blas.o feast.o timing blas feast
+	rm -f $(OBJECTS)  timing.o blas.o feast.o timing blas feast tile_test

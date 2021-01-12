@@ -24,14 +24,12 @@
 
 
 
-int diagonalize(TileArray<double>&, unsigned const subspace, const double Emin, const double Emax);
-int sample();
-int stephen();
-int stephen100();
+int spherium90_10();
+int spherium90_512();
+
 
 std::vector<double> readFile(std::string const& filename)
 {
-
    std::vector<double> mat;
    std::ifstream ifs(filename.c_str(), std::ios::in);
    if (!ifs.is_open()) {
@@ -49,33 +47,31 @@ std::vector<double> readFile(std::string const& filename)
 
 
 
-bool run_sample  = false;
-bool run_stephen = true;
-
-
 int main(int argc, char **argv)
 {
     int rank(0), numprocs(1), rv(0);
+
 #ifdef MYMPI
     MPI_Init(&argc,&argv);
+    MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 #endif
  
-    //if (run_sample) return sample();
-    //if (run_stephen && rank == 0) {
-    if (run_stephen) {
-        rv = stephen100();
-#ifdef MYMPI
-        MPI_Finalize();
-#endif
+    if (rank == 0)  {
+       std::cout << "Running on " << numprocs << " procesors" << std::endl;
     }
+    rv = spherium90_512();
+
+#ifdef MYMPI
+    MPI_Finalize();
+#endif
 
     return rv;
 }
 
 
 
-int diagonalize(TileArray<double>& A, TileArray<complex>& bmAc, unsigned const subspace, const double Emin, const double Emax)
+int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin, const double Emax)
 {
     const MKL_INT N = A.nCols();
 
@@ -97,9 +93,11 @@ int diagonalize(TileArray<double>& A, TileArray<complex>& bmAc, unsigned const s
     MKL_INT ijob(-1);
     MKL_INT fpm[128];
 
-    std::cout << "Subspace size: " << subspace << std::endl;
-
+#ifdef MYMPI
     feastinit(fpm);
+#else
+    feastinit(fpm);
+#endif
 
     fpm[0] = 1; /* Generate runtime messages */
     fpm[5] = 1; /* Second stopping criteria  */
@@ -181,7 +179,7 @@ int diagonalize(TileArray<double>& A, TileArray<complex>& bmAc, unsigned const s
                int rc = conjugate_gradient(A, bmQc, bmBc, -Ze);
 
                if (rc < 0) {
-                  //Log::error("Solver failed to converge");
+                  Log::error("Solver failed to converge");
                }
                
                memcpy(workc, vmQc.data(), N*M0*sizeof(complex));
@@ -237,47 +235,23 @@ int diagonalize(TileArray<double>& A, TileArray<complex>& bmAc, unsigned const s
     }
 
 
-   
-    printf("\n");
-    printf("*************************************************\n");
-    printf("************** REPORT ***************************\n");
-    printf("*************************************************\n\n");
-    printf("# Search interval [Emin,Emax] %.15e %.15e\n",Emin,Emax);
-    printf("# Modes found/subspace: %d %d     Iterations: %d\n",M,M0,loop);
+    int rank(0);
+#ifdef MYMPI
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+#endif
+    if (rank == 0) {
+       printf("\n");
+       printf("*************************************************\n");
+       printf("************** REPORT ***************************\n");
+       printf("*************************************************\n\n");
+       printf("# Search interval [Emin,Emax] %.15e %.15e\n",Emin,Emax);
+       printf("# Modes found/subspace: %d %d     Iterations: %d\n",M,M0,loop);
 
-    double trace(0.0);
-    for (int i = 0; i < M; i++) trace = trace+E[i];
-    printf("Trace %.15e \n", trace);
-    printf("Relative error on the Trace %.15e\n\n",epsout );
+       double trace(0.0);
+       for (int i = 0; i < M; i++) trace = trace+E[i];
+       printf("Trace %.15e \n", trace);
+       printf("Relative error on the Trace %.15e\n\n",epsout );
 
-    if (run_sample) {
-       // This is the print out for the sample problem
-       printf("   Computed    |    Expected  \n");
-       printf("   Eigenvalues |    Eigenvalues \n");
-
-       //!!!!!!!!!!!!!!! Exact eigenvalues in range (3.0, 7.0) !!!!!!!!!!!!!!!!!!!!!!
-       double  Eig[11];
-       for (int i=0; i<N; i++ )
-           Eig[i] = (double)0.0;
-
-       Eig[0] = (double)3.1715728752538100;
-       Eig[1] = (double)4.0000000000000000;
-       Eig[2] = (double)4.0000000000000000;
-       Eig[3] = (double)4.1292484841890931;
-       Eig[4] = (double)4.4066499006731521;
-       Eig[5] = (double)6.0000000000000000;
-
-       double eigabs(0.0);
-       double r;
-
-       for (int i=0; i<M; i++ )
-       {
-           r = fabs(E[i]-Eig[i]);
-           eigabs = max(eigabs, r);
-           printf("%.15e %.15e \n", E[i], Eig[i]);
-       }
-       printf(" Max value of computed eigenvalue - expected eigenvalues %.15e \n\n", eigabs);
-    }else {
        printf("   Computed  Eigenvalues  \n");
        std::cout << std::fixed << std::showpoint << std::setprecision(10);
        for (int i=0; i<M; i++ ) {
@@ -298,19 +272,17 @@ int diagonalize(TileArray<double>& A, TileArray<complex>& bmAc, unsigned const s
 }
 
 
-int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin, const double Emax)
+
+int spherium90_512()
 {
-    TileArray<complex> bmAc;
-    bmAc.from(A);
-    //bmAc.scale(-1.0);
-    bmAc.info("Complex copied info");
-    return diagonalize(A, bmAc, subspace, Emin, Emax);
-}
+   Timer timer;
+   timer.start();
 
+    int rank(0);
+#ifdef MYMPI
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+#endif
 
-
-int stephen100()
-{
    unsigned nBlocks  = 11;
    //unsigned blocks[] = {1, 248, 248, 247, 247, 246, 247, 248, 247, 246, 245};
    //std::string fname("mat250");
@@ -325,45 +297,47 @@ int stephen100()
        }
    }
 
+   timer.stop();
+   if (rank == 0) std::cout << "Setup time:     " << timer.format() << std::endl;
+
+   timer.start();
    std::vector<double> mat(readFile(fname));
-   std::cout << "Number of matrix entries read: " << mat.size() << std::endl;
+   if (rank == 0) std::cout << "Number of matrix entries read: " << mat.size() << std::endl;
    TA.bind(&mat[0]);
-   TA.info("Stephen Matrix");
-   Timer timer;
+   timer.stop();
+   if (rank == 0) std::cout << "Read time:      " << timer.format() << std::endl;
 
 /*
    timer.start();
    eigenvalues(TA);
    timer.stop();
-   std::cout << "LAPACK time: " << timer.format() << std::endl;
+   std::cout << "LAPACK time:    " << timer.format() << std::endl;
 */
 
    unsigned subspace(5);
    double Emin(46.0);
    double Emax(55.0);
 
-   //Emin = 46.0;
-   //Emax = 47.0;
-
+   timer.start();
    TA.reduce();
-
-    TileArray<complex> bmAc;
-    bmAc.from(TA);
-    //bmAc.scale(-1.0);
-    bmAc.info("Complex copied info");
+   timer.stop();
+   if (rank == 0) {
+      std::cout << "Reduction time: " << timer.format() << std::endl;
+      TA.info("Spherium (4,0) Matrix");
+   }
 
    timer.start();
-   int rv = diagonalize(TA, bmAc, subspace, Emin, Emax);
+   int rv = diagonalize(TA, subspace, Emin, Emax);
    timer.stop();
 
-   std::cout << "FEAST time: " << timer.format() << std::endl;
+   if (rank == 0) std::cout << "FEAST time:     " << timer.format() << std::endl;
 
    return rv;
 }
 
 
 
-int stephen()
+int spherium90_10()
 {
    unsigned nBlocks  = 11;
    unsigned blocks[] = { 1, 6, 6, 5, 5, 4, 5, 6, 5, 4, 3};
@@ -389,7 +363,8 @@ int stephen()
    double const Emin(46.0);
    double const Emax(55.0);
 
-   //TA.reduce();
+   // Reduce the dense matrices to bespoke storage
+   // TA.reduce();
 
    timer.start();
    int rv = diagonalize(TA, subspace, Emin, Emax);
@@ -399,37 +374,4 @@ int stephen()
 
    return rv;
 }
-
-
-
-int sample()
-{   
-
-    unsigned const matsize(11);
-    unsigned const subspace(8);
-
-    std::vector<int> stripes{-3,-2,-1,0,1,2,3};
-    StripedTile<double> A(matsize,matsize,stripes);
-    A.fill(StencilFunctor<double>());
-
-    A.set( 0, 0, 5.0);
-    A.set( 1, 0, 2.0);
-    A.set( 0, 1, 2.0);
-    A.set( 9,10, 2.0);
-    A.set(10, 9, 2.0);
-    A.set(10,10, 5.0);
-
-
-    double const Emin(3.0);
-    double const Emax(7.0);
-
-    CMTile<double> dense(A);
-    dense.print("A Matrix");
-
-    TileArray<double> bA(dense);
-
-    int rv = diagonalize(bA, subspace, Emin, Emax);
-    return rv;
-}
-
 

@@ -162,7 +162,7 @@ int conjugate_gradient(TileArray<U> const& A, TileArray<T>& X, TileArray<T> cons
 
    if (iter < MAX_ITER) {
       std::cout << std::fixed << std::showpoint << std::setprecision(10);
-      std::cout << "CONVERGED, iterations "<< iter << "  residue: " << res;
+      //std::cout << "CONVERGED, iterations "<< iter << "  residue: " << res << std::endl;
    }else {
       std::cout << "FAILED to converge: " << res;
       iter *= -1;
@@ -174,8 +174,6 @@ int conjugate_gradient(TileArray<U> const& A, TileArray<T>& X, TileArray<T> cons
       R -= B;
       std::cout <<"  product norm: " << R.norm2();
    }
-
-   std::cout << std::endl;
 
    cleanup: 
       for (unsigned i = 0; i < nBlocks; ++i) {
