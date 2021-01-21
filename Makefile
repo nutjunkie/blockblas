@@ -8,7 +8,7 @@ LIBS = -mkl
 HEADERS = Tile.h ZeroTile.h DiagonalTile.h StripedTile.h CMTile.h util.h \
           JacobiSolver.h Functor.h TileProduct.h EigenSolver.h ConjugateSolver.h \
           TileArray.h
-OBJECTS = Tile.o CMTile.o TileProduct.o JacobiSolver.o EigenSolver.o DiagonalTile.o
+OBJECTS = Tile.o CMTile.o TileProduct.o JacobiSolver.o EigenSolver.o DiagonalTile.o readMatrix.o
 
 
 %.o : %.C 
@@ -34,6 +34,10 @@ timing: timing.o $(OBJECTS) $(HEADERS)
 
 blas: blas.o $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o blas $(LIBS) $(OBJECTS) blas.o
+
+readMatrix: readMatrix.o
+	$(CXX) $(CXXFLAGS) -o readMatrix $(LIBS) $(OBJECTS) readMatrix.o
+	
 
 
 

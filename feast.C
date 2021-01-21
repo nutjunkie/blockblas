@@ -24,6 +24,8 @@
 
 
 
+void readMatrix(std::string const& fname, TileArray<double>& TA);
+int simonSays();
 int spherium90_10();
 int spherium90_512();
 
@@ -60,6 +62,7 @@ int main(int argc, char **argv)
     if (rank == 0)  {
        std::cout << "Running on " << numprocs << " procesors" << std::endl;
     }
+    //rv = simonSays();
     rv = spherium90_512();
 
 #ifdef MYMPI
@@ -272,7 +275,6 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
 }
 
 
-
 int spherium90_512()
 {
    Timer timer;
@@ -368,6 +370,42 @@ int spherium90_10()
 
    timer.start();
    int rv = diagonalize(TA, subspace, Emin, Emax);
+   timer.stop();
+
+   std::cout << "FEAST time: " << timer.format() << std::endl;
+
+   return rv;
+}
+
+
+int simonSays()
+{
+   TileArray<double> TA;
+
+   readMatrix("matrix.bin", TA);
+
+   CMTile<double>* hf(new CMTile<double>(1,1));
+   hf->alloc();
+   hf->set(0,0,0.0);
+
+   TA.set(0,0, hf);
+   TA.addToDiag(1.00);
+   TA.info("TA info");
+   TA.print("Full Matrix");
+
+   Timer timer;
+   timer.start();
+   eigenvalues(TA);
+   timer.stop();
+   std::cout << "LAPACK time: " << timer.format() << std::endl;
+
+   int rv(0);
+   unsigned subspace(3);
+   double const Emin(0.0);
+   double const Emax(1.0);
+
+   timer.start();
+   rv = diagonalize(TA, subspace, Emin, Emax);
    timer.stop();
 
    std::cout << "FEAST time: " << timer.format() << std::endl;

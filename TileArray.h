@@ -71,8 +71,6 @@ class TileArray
       {
          resize(that.nRowTiles(), that.nColTiles());
 
-         m_tiles = new Tile<T>*[m_nRowTiles*m_nColTiles];
-
          for (unsigned col = 0; col < m_nColTiles; ++col) {
              for (unsigned row = 0; row < m_nRowTiles; ++row) {
                  m_tiles[row + col*m_nRowTiles] = TileFactory2<T,U>(that(row,col));
@@ -370,18 +368,19 @@ class TileArray
       }
 
 
-   private:
-      size_t m_nRowTiles;
-      size_t m_nColTiles;
-      Tile<T>** m_tiles;
-
-
       void resize(size_t nRowTiles, size_t nColTiles)
       {
          destroy();
          m_nRowTiles = nRowTiles;
          m_nColTiles = nColTiles;
+         m_tiles = new Tile<T>*[m_nRowTiles*m_nColTiles];
       }
+
+
+   private:
+      size_t m_nRowTiles;
+      size_t m_nColTiles;
+      Tile<T>** m_tiles;
 
 
       void destroy()

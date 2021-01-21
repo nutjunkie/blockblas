@@ -27,6 +27,14 @@ class StripedTile : public Tile<T>
       { }
 
 
+      StripedTile(size_t const nRows = 0, size_t const nCols = 0, size_t const nStripes = 0)
+        : Tile<T>(nRows, nCols)
+      { 
+         // yuk
+         for (size_t i = 0; i < nStripes; ++i)  m_stripes.push_back(0);
+      }
+
+
       StripedTile(StripedTile<T> const& that)
       {
          copy(that);
@@ -122,6 +130,12 @@ class StripedTile : public Tile<T>
          for (size_t i = 0; i < this->m_nData; ++i) {
              this->m_data[i] *= t;
          } 
+      }
+
+
+      void setStripes(std::vector<int> const& stripes) 
+      {
+         m_stripes = stripes;
       }
 
 

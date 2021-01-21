@@ -113,6 +113,7 @@ void tile_product(Tile<U> const& A, Tile<T> const& B, T const gamma, Tile<T>& C)
 }
 
 
+//
 // Note these product functions *accumulate* into C.
 // C must be initialized if this is not what you want.
 template <class T>
@@ -129,9 +130,13 @@ void product(TileArray<U> const& A, TileArray<T> const& B, TileArray<T>& C)
    assert(A.nRowTiles() == C.nRowTiles());
    assert(A.nColTiles() == B.nRowTiles());
    assert(B.nColTiles() == C.nColTiles());
-#pragma omp parallel for 
-   for (unsigned bi = 0; bi < A.nRowTiles(); ++bi) {
-       for (unsigned bj = 0; bj < B.nColTiles(); ++bj) {
+
+   size_t const nRowTiles(A.nRowTiles());
+   size_t const nColTiles(B.nColTiles());
+   unsigned bi, bj;
+#pragma omp parallel for private(bj) collapse(2)
+   for (bi = 0; bi < nRowTiles; ++bi) {
+       for (bj = 0; bj < nColTiles; ++bj) {
            for (unsigned k = 0; k < A.nColTiles(); ++k) {
                // !!! Accumulate into C !!!
                tile_product(A(bi,k), B(k,bj), T(1.0), C(bi,bj));
