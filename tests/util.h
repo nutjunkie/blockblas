@@ -2,50 +2,27 @@
 #define UTIL_H
 
 #include <iostream>
+#include <iterator>
 #include <fstream>
 #include <string>
+#include <algorithm>
+#include <vector>
 #include <cmath>
 
-#include "Tile.h"
+#include "TileArray.h"
 
 
-namespace Log
-{
-   void warn(std::string const& msg) 
-   {
-      std::cerr << "Warning: " << msg << std::endl;
-   }
 
-   void error(std::string const& msg) 
-   {
-      std::cerr << "ERROR: " << msg << std::endl;
-   }
-
-}
+std::vector<double> readFile(std::string const& filename);
 
 
-bool zeroTest(unsigned i, unsigned j)
-{  
-   // diagonal
-   //return i == j;
-   // checkerboard => 50% sparsity
-   return  ((i+j) % 2 == 0);
-   // dense 
-   //return  true;
-}
+void readMatrix(std::string const& fname, TileArray<double>& TA);
 
 
-void print_header(unsigned n, char const* header)
-{
-   std::string s(" test_");
-   s += std::to_string(n) + ": " + std::string(header);
+bool zeroTest(unsigned i, unsigned j);
 
-   unsigned len(s.length());
-   std::cout << std::string(len+1, '=') << std::endl;
-   std::cout << s << std::endl;
-   std::cout << std::string(len+1, '=') << std::endl;
-   
-}
+
+void print_header(unsigned n, char const* header);
 
 
 template <class T>
