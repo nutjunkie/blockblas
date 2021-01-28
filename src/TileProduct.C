@@ -1,6 +1,7 @@
 #include "TileProduct.h"
 
 
+// double * double = double
 template <>
 void tile_product(CMTile<double> const& A, CMTile<double> const& B, 
    double const beta, CMTile<double>& C, CBLAS_TRANSPOSE const Atrans)
@@ -9,8 +10,7 @@ void tile_product(CMTile<double> const& A, CMTile<double> const& B,
    unsigned aCols(A.nCols());
 
    if (Atrans == CblasTrans) {
-      aRows = A.nCols();
-      aCols = A.nRows();
+      std::swap(aRows,aCols);
    }
 
    cblas_dgemm(CblasColMajor, Atrans, CblasNoTrans, 
@@ -20,6 +20,7 @@ void tile_product(CMTile<double> const& A, CMTile<double> const& B,
 
 
 
+// complex * complex = complex 
 template <>
 void tile_product(CMTile<complex> const& A, CMTile<complex> const& B, 
    complex const beta, CMTile<complex>& C, CBLAS_TRANSPOSE const Atrans)
@@ -29,8 +30,7 @@ void tile_product(CMTile<complex> const& A, CMTile<complex> const& B,
    unsigned aCols(A.nCols());
 
    if (Atrans == CblasTrans) {
-      aRows = A.nCols();
-      aCols = A.nRows();
+      std::swap(aRows,aCols);
    }
 
    cblas_zgemm(CblasColMajor, Atrans, CblasNoTrans, 
@@ -39,6 +39,7 @@ void tile_product(CMTile<complex> const& A, CMTile<complex> const& B,
 }
 
 
+// double * complex = complex 
 template <>
 void tile_product(CMTile<double> const& A, CMTile<complex> const& B, 
    complex const beta, CMTile<complex>& C, CBLAS_TRANSPOSE const Atrans)
@@ -49,8 +50,7 @@ void tile_product(CMTile<double> const& A, CMTile<complex> const& B,
    unsigned aCols(A.nCols());
 
    if (Atrans == CblasTrans) {
-      aRows = A.nCols();
-      aCols = A.nRows();
+      std::swap(aRows,aCols);
    }
 
    CMTile<double> Bt, Ct(C.nRows(), C.nCols());

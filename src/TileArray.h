@@ -22,11 +22,13 @@ class TileArray
    public:
 
       TileArray(size_t const nRowTiles = 0, size_t const nColTiles = 0) :
-         m_nRowTiles(nRowTiles), m_nColTiles(nColTiles)
+         m_nRowTiles(nRowTiles), m_nColTiles(nColTiles), m_tiles(0)
       {
          size_t nTiles(m_nRowTiles*m_nColTiles);
-         m_tiles = new Tile<T>*[nTiles];
-         memset(m_tiles, 0, nTiles*sizeof(Tile<T>*));
+         if (nTiles > 0) {
+            m_tiles = new Tile<T>*[nTiles];
+            memset(m_tiles, 0, nTiles*sizeof(Tile<T>*));
+         }
       }
 
 

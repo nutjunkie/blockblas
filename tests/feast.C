@@ -183,7 +183,7 @@ int simonSays()
    std::cout << "LAPACK time: " << timer.format() << std::endl;
 
    int rv(0);
-   unsigned subspace(3);
+   unsigned subspace(2);
    double const Emin(0.0);
    double const Emax(1.0);
 

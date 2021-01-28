@@ -18,7 +18,8 @@ void tile_product(CMTile<U> const& A, CMTile<T> const& B,
 
 
 template <class T, class U>
-void tile_product(DiagonalTile<U> const& A, CMTile<T> const& B, T const alpha, CMTile<T>& C)
+void tile_product(DiagonalTile<U> const& A, CMTile<T> const& B, T const alpha, CMTile<T>& C, 
+   CBLAS_TRANSPOSE const Atrans = CblasNoTrans) 
 {
    unsigned nc(B.nCols());
    unsigned nr(A.nRows());
@@ -41,11 +42,23 @@ void tile_product(DiagonalTile<U> const& A, CMTile<T> const& B, T const alpha, C
 
 
 template <class T, class U>
-void tile_product(StripedTile<U> const& A, CMTile<T> const& B, T const alpha, CMTile<T>& C)
+void tile_product(StripedTile<U> const& A, CMTile<T> const& B, T const alpha, CMTile<T>& C,
+   CBLAS_TRANSPOSE const Atrans = CblasNoTrans)
 {
    unsigned rowsA(A.nRows());
    unsigned colsA(A.nCols());
    unsigned colsC(C.nCols());
+
+   std::vector<int> stripes(A.stripes());
+
+   if (Atrans == CblasTrans) {
+      std::swap(rowsA,colsA);
+      
+      std::vector<int>::iterator iter;
+      for (iter = stripes.begin(); iter != stripes.end(); ++iter) {
+          *iter = -(*iter);
+      }
+   }
 
    unsigned ldb(B.leadingDim());
    unsigned ldc(C.leadingDim());
@@ -55,8 +68,6 @@ void tile_product(StripedTile<U> const& A, CMTile<T> const& B, T const alpha, CM
    U const* a(A.data());
    T const* b(B.data());
    T*       c(C.data());
-
-   std::vector<int> const& stripes(A.stripes());
 
    C.scale(alpha);
 
@@ -80,7 +91,8 @@ void tile_product(StripedTile<U> const& A, CMTile<T> const& B, T const alpha, CM
 
 
 template <class T, class U>
-void tile_product(Tile<U> const& A, Tile<T> const& B, T const gamma, Tile<T>& C)
+void tile_product(Tile<U> const& A, Tile<T> const& B, T const gamma, Tile<T>& C,
+   CBLAS_TRANSPOSE const Atrans = CblasNoTrans)
 {
    CMTile<T> const& b = dynamic_cast<CMTile<T> const&>(B);
    CMTile<T>& c = dynamic_cast<CMTile<T>&>(C);
@@ -93,17 +105,17 @@ void tile_product(Tile<U> const& A, Tile<T> const& B, T const gamma, Tile<T>& C)
 
       case Diagonal: {
          DiagonalTile<U> const& a = dynamic_cast<DiagonalTile<U> const&>(A);
-         tile_product(a, b, gamma, c);
+         tile_product(a, b, gamma, c, Atrans);
       } break;
 
       case Striped: {
          StripedTile<U> const& a = dynamic_cast<StripedTile<U> const&>(A);
-         tile_product(a, b, gamma, c);
+         tile_product(a, b, gamma, c, Atrans);
       } break;
 
       case CMDense: {
          CMTile<U> const& a = dynamic_cast<CMTile<U> const&>(A);
-         tile_product(a, b, gamma, c);
+         tile_product(a, b, gamma, c, Atrans);
       } break;
 
       default:
