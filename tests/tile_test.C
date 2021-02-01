@@ -836,6 +836,57 @@ int test_22()
 }
 
 
+int test_23()
+{
+   print_header(23, "Tile sorting");
+
+   size_t nTiles(4);
+   SymmetricTileArray<double> STA(nTiles);
+
+   int dim[] = {1,2,3,4};
+
+   std::vector<int> stripes1 = {-1};
+   std::vector<int> stripes2 = {-1,1,2};
+
+   // This is not good, the TestFunctor can't be used here becase it relies on 
+   // the existence of the last colum of tiles.  So we need to allocate before
+   // filling.
+   
+   STA.set(0,0, new       CMTile<double>(dim[0],dim[0]));
+   STA.set(0,1, new DiagonalTile<double>(dim[0],dim[1]));
+   STA.set(0,2, new     ZeroTile<double>(dim[0],dim[2]));
+   STA.set(0,3, new DiagonalTile<double>(dim[0],dim[3]));
+
+   STA.set(1,1, new       CMTile<double>(dim[1],dim[1]));
+   STA.set(1,2, new  StripedTile<double>(dim[1],dim[2],stripes1));
+   STA.set(1,3, new DiagonalTile<double>(dim[1],dim[3]));
+
+   STA.set(2,2, new       CMTile<double>(dim[2],dim[2]));
+   STA.set(2,3, new  StripedTile<double>(dim[2],dim[3],stripes1));
+
+   STA.set(3,3, new  StripedTile<double>(dim[3],dim[3],stripes2));
+
+   for (unsigned bi = 0; bi < nTiles; ++bi) {
+       for (unsigned bj = bi; bj < nTiles; ++bj) {
+           STA(bi,bj).fill(TestFunctor(STA.rowOffset(bi),STA.colOffset(bj)));
+       }
+   }
+
+   STA.info("Symmetric Tile");
+   STA.print("Symmetric Tile");
+
+   std::vector<TileIndex> indices(STA.sort());
+   std::vector<TileIndex>::iterator iter;
+   for (iter = indices.begin(); iter  != indices.end(); ++iter) {
+       size_t ai(std::min(iter->first, iter->second));
+       size_t aj(std::max(iter->first, iter->second));
+       std::cout << "(" << iter->first << "," << iter->second << ")" << "   " << STA(ai,aj).numData() <<  std::endl;
+   }
+
+
+   return 0;
+}
+
 
 
 
@@ -846,7 +897,6 @@ int main()
    int ok(0);
 
    ok = ok 
-/*
       + test_1()
       + test_2()
       + test_3()
@@ -867,8 +917,10 @@ int main()
       + test_19()
       + test_20()
       + test_21()
+/*
 */
       + test_22()
+      + test_23()
    ;
 
    std::cout << std::endl;

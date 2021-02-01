@@ -17,6 +17,7 @@ typedef std::complex<double> complex;
 #endif
 
 #include <string>
+#include <utility>
 
 #define MAX_ITER 50
 
@@ -37,5 +38,7 @@ inline std::string toString(StorageT storage)
 
    return s;
 }
+
+typedef std::pair<size_t, size_t> TileIndex;
 
 #endif

@@ -46,7 +46,7 @@ class ZeroTile : public Tile<T>
 
       size_t indexOf(size_t const i, size_t const j) const
       {
-         return 0;
+         return 1;
       }
 
 

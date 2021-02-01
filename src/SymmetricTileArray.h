@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include <algorithm>
+#include <functional>
 #include "TileFactory.h"
 #include "Functor.h"
 
@@ -180,19 +182,9 @@ class SymmetricTileArray
       // This will blow up if the Tiles are not all dense
       void bind(T* data)
       {
-          unsigned lda(nRows());
-
-          for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
-              T* d0(data+colOffset(bj)*lda);
-
-              for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
-                  CMTile<T>& cmt = dynamic_cast<CMTile<T>&>(tile(bi,bj));
-                  cmt.bind(d0,lda);
-                  d0 += cmt.nRows();
-             }
-          }
       }
 */
+
 
       template <class T>
       void scale(T const t) 
@@ -202,6 +194,44 @@ class SymmetricTileArray
                  tile(bi,bj).scale(t);
              }
          }
+      }
+
+
+      bool compare(TileIndex const& a, TileIndex const& b) const
+      {
+          size_t ai(std::min(a.first, a.second));
+          size_t aj(std::max(a.first, a.second));
+
+          size_t bi(std::min(b.first, b.second));
+          size_t bj(std::max(b.first, b.second));
+
+          Tile<T> const& A(tile(ai,aj));
+          Tile<T> const& B(tile(bi,bj));
+
+          return A.numData() < B.numData();
+      } 
+
+
+      // This returns ALL the (non-zero) (bi,bj) pairs as we don't want to branch 
+      // inside the product loop
+      std::vector<TileIndex> sort() const
+      {
+         std::vector<TileIndex> indices;
+         indices.reserve(m_nTotTiles);
+
+         for (size_t col = 0; col < m_nColTiles; ++col) {
+             for (size_t row = 0; row <m_nColTiles; ++row) {
+                 Tile<T> const& t(tile(std::min(row,col), std::max(row,col)));
+                 if (t.storage() != Zero) {
+                    indices.push_back(std::make_pair(row,col));
+                 }
+             }   
+         }   
+
+         using namespace std::placeholders;
+         std::sort(indices.begin(), indices.end(), std::bind(&SymmetricTileArray::compare, this, _1, _2));
+
+         return indices;
       }
 
 
@@ -460,4 +490,5 @@ class SymmetricTileArray
          m_tiles[0] = TileFactory(that);
      }
 };
+
 #endif

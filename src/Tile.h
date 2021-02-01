@@ -15,7 +15,6 @@
 #include "Functor.h"
 
 
-
 template <class T>
 class Tile
 {
@@ -82,7 +81,6 @@ class Tile
       Tile<T>& alloc() 
       {
          if (m_data) dealloc();
-        // m_nData   = (nData == 0) ? numData() : nData;
          m_nData   = numData();
          m_data    = new T[m_nData];
          m_ownData = true;

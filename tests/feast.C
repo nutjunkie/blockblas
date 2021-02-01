@@ -44,9 +44,9 @@ int main(int argc, char **argv)
     if (rank == 0)  {
        std::cout << "Running on " << numprocs << " procesors" << std::endl;
     }
-    rv = simonSaysLess();
+    //rv = simonSaysLess();
     //rv = spherium90_10();
-    //rv = spherium90_512();
+    rv = spherium90_512();
 
 #ifdef MYMPI
     MPI_Finalize();
@@ -97,9 +97,9 @@ int spherium90_512()
    std::cout << "LAPACK time:    " << timer.format() << std::endl;
 */
 
-   unsigned subspace(5);
+   unsigned subspace(2);
    double Emin(46.0);
-   double Emax(55.0);
+   double Emax(47.0);
 
    timer.start();
    TA.reduce();
@@ -107,6 +107,11 @@ int spherium90_512()
    if (rank == 0) {
       std::cout << "Reduction time: " << timer.format() << std::endl;
       TA.info("Spherium (4,0) Matrix");
+   }
+
+   SymmetricTileArray<double> STA(TA);
+   if (rank == 0) {
+      STA.info("Symmetric Spherium (4,0) Matrix");
    }
 
    timer.start();

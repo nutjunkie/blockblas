@@ -161,35 +161,6 @@ void product(TileArray<U> const& A, TileArray<T> const& B, TileArray<T>& C)
 
 
 
-// Note these product functions *accumulate* into C.
-// C must be initialized if this is not what you want.
-template <class T, class U>
-void product(SymmetricTileArray<U> const& A, TileArray<T> const& B, TileArray<T>& C)
-{
-   assert(A.nRowTiles() == C.nRowTiles());
-   assert(A.nColTiles() == B.nRowTiles());
-   assert(B.nColTiles() == C.nColTiles());
-
-   size_t const nRowTiles(A.nRowTiles());
-   size_t const nColTiles(B.nColTiles());
-   unsigned bi, bj;
-#pragma omp parallel for private(bj) collapse(2)
-   for (bi = 0; bi < nRowTiles; ++bi) {
-       for (bj = 0; bj < nColTiles; ++bj) {
-           for (unsigned k = 0; k < A.nColTiles(); ++k) {
-               // !!! Accumulate into C !!!
-               if (bi > k) {
-                  tile_product(A(k,bi), B(k,bj), T(1.0), C(bi,bj), CblasTrans);
-               }else {
-                  tile_product(A(bi,k), B(k,bj), T(1.0), C(bi,bj), CblasNoTrans);
-               }
-           }
-       }
-   }
-}
-
-
-
 template <class T>
 void product_sans_diagonal(TileArray<T> const& A, TileArray<T> const& B, TileArray<T>& C)
 {
@@ -208,6 +179,57 @@ void product_sans_diagonal(TileArray<T> const& A, TileArray<T> const& B, TileArr
        }
   }
 }
+
+
+
+template <class T, class U>
+void product(SymmetricTileArray<U> const& A, TileArray<T> const& B, TileArray<T>& C)
+{
+   assert(A.nRowTiles() == C.nRowTiles());
+   assert(A.nColTiles() == B.nRowTiles());
+   assert(B.nColTiles() == C.nColTiles());
+
+   size_t const nRowTiles(A.nRowTiles());
+   size_t const nColTiles(B.nColTiles());
+   unsigned i, j, k;
+
+   std::vector<TileIndex> indices(A.sort());
+   std::vector<TileIndex>::iterator iter;
+
+   std::vector<TileIndex>::iterator const start(indices.begin());
+   std::vector<TileIndex>::iterator const stop(indices.end());
+
+
+
+   for (j = 0; j < nColTiles; ++j) {
+
+/*
+       for (i = 0; i < nRowTiles; ++i) {
+           for (unsigned k = 0; k < A.nColTiles(); ++k) {
+               // !!! Accumulate into C !!!
+               if (i > k) {
+                  tile_product(A(k,i), B(k,j), T(1.0), C(i,j), CblasTrans);
+               }else {
+                  tile_product(A(i,k), B(k,j), T(1.0), C(i,j), CblasNoTrans);
+               }
+           }
+       }
+*/
+#pragma omp parallel for
+       for (iter = start; iter != stop; ++iter) {
+           i = iter->first;
+           k = iter->second;
+           if (i > k) {
+              tile_product(A(k,i), B(k,j), T(1.0), C(i,j), CblasTrans);
+           }else {
+              tile_product(A(i,k), B(k,j), T(1.0), C(i,j), CblasNoTrans);
+           }
+       }
+       
+
+   }
+}
+
 
 
 #endif
