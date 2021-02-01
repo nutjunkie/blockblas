@@ -6,7 +6,7 @@ add_library(blockblas
    Log.C
    Tile.C
    TileProduct.C
-   Diagonalize.C
+#   Diagonalize.C
 )
 
 target_include_directories( blockblas PUBLIC $(CMAKE_CURRENT_SOURCE_DIR))

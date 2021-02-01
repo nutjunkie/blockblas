@@ -1,4 +1,8 @@
+#ifndef DIAGONALIZE_H
+#define DIAGONALIZE_H
+
 #include "TileArray.h"
+#include "SymmetricTileArray.h"
 #include "JacobiSolver.h"
 #include "ConjugateSolver.h"
 #include "TileProduct.h"
@@ -20,12 +24,12 @@
 #include <iomanip>
 #include <vector>
 
-#define max(a, b) (a) < (b) ? (b): (a)
 
 
 
-
-int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin, const double Emax)
+template <class TT>
+int diagonalize(TT& A, unsigned const subspace, const double Emin, const double Emax)
+//int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin, const double Emax)
 {
     const MKL_INT N = A.nCols();
 
@@ -110,8 +114,8 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
                TileArray<complex> bmQc(nTiles,1);
 
                for (unsigned bi = 0; bi < nTiles; ++bi) {
-                   bmBc.set(bi,0, new CMTile<complex>(A(bi,0).nRows(),M0));
-                   bmQc.set(bi,0, new CMTile<complex>(A(bi,0).nRows(),M0));
+                   bmBc.set(bi,0, new CMTile<complex>(A(bi,nTiles-1).nRows(),M0));
+                   bmQc.set(bi,0, new CMTile<complex>(A(bi,nTiles-1).nRows(),M0));
                }
 
                CMTile<complex> vmQc(N,M0);
@@ -152,8 +156,8 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
                TileArray<double> taW(nTiles,1); 
 
                for (unsigned bi = 0; bi < nTiles; ++bi) {
-                   taX.set(bi,0, new CMTile<double>(A(bi,0).nRows(),colsX));
-                   taW.set(bi,0, new CMTile<double>(A(bi,0).nRows(),colsX));
+                   taX.set(bi,0, new CMTile<double>(A(bi,nTiles-1).nRows(),colsX));
+                   taW.set(bi,0, new CMTile<double>(A(bi,nTiles-1).nRows(),colsX));
                }
 
                memset(work+imem, 0, N*colsX*sizeof(double));
@@ -220,3 +224,5 @@ int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin
 
     return 0;
 }
+
+#endif

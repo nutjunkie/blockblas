@@ -10,6 +10,7 @@
 #include <cmath>
 
 #include "TileArray.h"
+#include "SymmetricTileArray.h"
 
 
 
@@ -17,6 +18,9 @@ std::vector<double> readFile(std::string const& filename);
 
 
 void readMatrix(std::string const& fname, TileArray<double>& TA);
+
+
+void readMatrix(std::string const& fname, SymmetricTileArray<double>& TA);
 
 
 bool zeroTest(unsigned i, unsigned j);

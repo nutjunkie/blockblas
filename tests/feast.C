@@ -3,6 +3,7 @@
 #include "ConjugateSolver.h"
 #include "TileProduct.h"
 #include "EigenSolver.h"
+#include "Diagonalize.h"
 #include "Timer.h"
 #include "util.h"
 
@@ -20,15 +21,12 @@
 #include <iomanip>
 #include <vector>
 
-#define max(a, b) (a) < (b) ? (b): (a)
 
 
-
-void readMatrix(std::string const& fname, TileArray<double>& TA);
 int simonSays();
+int simonSaysLess();
 int spherium90_10();
 int spherium90_512();
-int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin, const double Emax);
 
 
 
@@ -46,7 +44,7 @@ int main(int argc, char **argv)
     if (rank == 0)  {
        std::cout << "Running on " << numprocs << " procesors" << std::endl;
     }
-    rv = simonSays();
+    rv = simonSaysLess();
     //rv = spherium90_10();
     //rv = spherium90_512();
 
@@ -189,6 +187,49 @@ int simonSays()
 
    timer.start();
    rv = diagonalize(TA, subspace, Emin, Emax);
+   timer.stop();
+
+   std::cout << "FEAST time: " << timer.format() << std::endl;
+
+   return rv;
+}
+
+
+int simonSaysLess()
+{
+   TileArray<double> TA;
+   readMatrix("matrix.bin", TA);
+   CMTile<double>* hf(new CMTile<double>(1,1));
+   hf->alloc();
+   hf->set(0,0,0.0);
+   TA.set(0,0, hf);
+   TA.addToDiag(1.00);
+   TA.info("TA info");
+   TA.print("Full Matrix");
+
+   SymmetricTileArray<double> STA;
+   readMatrix("matrix.bin", STA);
+   hf = new CMTile<double>(1,1);
+   hf->alloc();
+   hf->set(0,0,0.0);
+   STA.set(0,0, hf);
+   STA.addToDiag(1.00);
+   STA.info("STA info");
+   STA.print("Full Matrix");
+
+   Timer timer;
+   timer.start();
+   eigenvalues(TA);
+   timer.stop();
+   std::cout << "LAPACK time: " << timer.format() << std::endl;
+
+   int rv(0);
+   unsigned subspace(2);
+   double const Emin(0.0);
+   double const Emax(1.0);
+
+   timer.start();
+   rv = diagonalize(STA, subspace, Emin, Emax);
    timer.stop();
 
    std::cout << "FEAST time: " << timer.format() << std::endl;

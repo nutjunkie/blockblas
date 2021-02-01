@@ -10,8 +10,9 @@
 
 // Solves (A+root*I).x = b using the conjugate gradient method.
 // Allows for different types of A and X
-template <class T, class U>
-int conjugate_gradient(TileArray<U> const& A, TileArray<T>& X, TileArray<T> const& B, T const root)
+template <template<class> class TT, class T, class U>
+int conjugate_gradient(TT<U> const& A, TileArray<T>& X, TileArray<T> const& B, T const root)
+//int conjugate_gradient(TileArray<U> const& A, TileArray<T>& X, TileArray<T> const& B, T const root)
 {
    //A.print("A matrix ---");
    //B.print("b vector ---");

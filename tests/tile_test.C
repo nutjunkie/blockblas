@@ -5,8 +5,8 @@
 #include "CMTile.h"
 #include "TileProduct.h"
 #include "TileArray.h"
+#include "SymmetricTileArray.h"
 #include "EigenSolver.h"
-
 
 #include "JacobiSolver.h"
 #include "ConjugateSolver.h"
@@ -776,6 +776,68 @@ int test_21()
 }
 
 
+int test_22()
+{
+   print_header(22, "SymmetricTileArray");
+
+   size_t nTiles(4);
+   size_t nRows(5);
+   size_t nCols(3);
+   SymmetricTileArray<double> STA(nTiles);
+   TileArray<double> TA(nTiles, nTiles);
+   TileArray<double> TB(nTiles, nTiles);
+   TileArray<double> TC(nTiles, nTiles);
+
+   int dim[] = {1,2,3,4};
+
+   // This is not good, the TestFunctor can't be used here becase it relies on 
+   // the existence of the last colum of tiles.  So we need to allocate before
+   // filling.
+   for (unsigned bj = 0; bj < nTiles; ++bj) {
+       for (unsigned bi = 0; bi < nTiles; ++bi) {
+           TA.set(bi,bj, new CMTile<double>(dim[bi],dim[bj]));
+           TB.set(bi,bj, new CMTile<double>(dim[bi],dim[bj]));
+           TC.set(bi,bj, new CMTile<double>(dim[bi],dim[bj]));
+           if (bi <= bj) {
+              STA.set(bi,bj, new CMTile<double>(dim[bi],dim[bj]));
+           }
+       }
+   }
+
+   for (unsigned bj = 0; bj < nTiles; ++bj) {
+       for (unsigned bi = 0; bi < nTiles; ++bi) {
+           TA(bi,bj).fill(TestFunctor(STA.rowOffset(bi),STA.colOffset(bj)));
+           TB(bi,bj).fill0();
+           TC(bi,bj).fill0();
+           if (bi <= bj) {
+              STA(bi,bj).fill(TestFunctor(STA.rowOffset(bi),STA.colOffset(bj)));
+           }
+       }
+   }
+
+   TA.print("TileArray");
+   STA.info("SymmetricTileArray");
+
+
+   product(TA,TA,TB);
+   TB.print("Tile product");
+
+   product(STA,TA,TC);
+   TC.print("SymmetricTileArray product");
+
+   TC -= TB;
+   
+   if (std::abs(TC.norm2()) > 1e-8) {
+      std::cout << "FAILED: norm2 =" << TC.norm2() << std::endl;
+      return 1;
+   }
+
+   return 0;
+}
+
+
+
+
 
 
 int main()
@@ -784,6 +846,7 @@ int main()
    int ok(0);
 
    ok = ok 
+/*
       + test_1()
       + test_2()
       + test_3()
@@ -798,14 +861,14 @@ int main()
       + test_12()
       + test_14()
       + test_16()
-/*
-      + test_15<double>()
-*/
+//      + test_15<double>()
       + test_17()
       + test_18()
       + test_19()
       + test_20()
       + test_21()
+*/
+      + test_22()
    ;
 
    std::cout << std::endl;
