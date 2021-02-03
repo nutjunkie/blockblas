@@ -101,6 +101,10 @@ int spherium90_512()
    double Emin(46.0);
    double Emax(47.0);
 
+   subspace = 5;
+   Emin = 46.0;
+   Emax = 55.0;
+
    timer.start();
    TA.reduce();
    timer.stop();
@@ -115,7 +119,7 @@ int spherium90_512()
    }
 
    timer.start();
-   int rv = diagonalize(TA, subspace, Emin, Emax);
+   int rv = diagonalize(STA, subspace, Emin, Emax);
    timer.stop();
 
    if (rank == 0) std::cout << "FEAST time:     " << timer.format() << std::endl;

@@ -136,7 +136,9 @@ class SymmetricTileArray
       // This implies the TileArrays are always stored in column-major form
       Tile<T>& tile(unsigned row, unsigned const col)
       {
-          return *m_tiles[index(row,col)];
+          size_t idx(index(row,col));
+          assert(idx < m_nTotTiles);
+          return *m_tiles[idx];
       }
 
 

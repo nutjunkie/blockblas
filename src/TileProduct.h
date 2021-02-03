@@ -6,6 +6,7 @@
  * 
  *****************************************************************************/
 
+#include <omp.h>
 #include "CMTile.h"
 #include "TileArray.h"
 #include "StripedTile.h"
@@ -183,7 +184,7 @@ void product_sans_diagonal(TileArray<T> const& A, TileArray<T> const& B, TileArr
 
 
 template <class T, class U>
-void product(SymmetricTileArray<U> const& A, TileArray<T> const& B, TileArray<T>& C)
+void productBlocking(SymmetricTileArray<U> const& A, TileArray<T> const& B, TileArray<T>& C)
 {
    assert(A.nRowTiles() == C.nRowTiles());
    assert(A.nColTiles() == B.nRowTiles());
@@ -230,6 +231,109 @@ void product(SymmetricTileArray<U> const& A, TileArray<T> const& B, TileArray<T>
    }
 }
 
+
+
+
+template <class T, class U>
+void product(SymmetricTileArray<U> const& A, TileArray<T> const& B, TileArray<T>& C)
+{
+   assert(A.nRowTiles() == C.nRowTiles());
+   assert(A.nColTiles() == B.nRowTiles());
+   assert(B.nColTiles() == C.nColTiles());
+
+   size_t const nRowTiles(A.nRowTiles());
+   size_t const nColTiles(B.nColTiles());
+
+   std::vector<TileIndex> indices(A.sort());
+   std::vector<TileIndex>::iterator iter;
+   std::vector<TileIndex>::iterator const start(indices.begin());
+   std::vector<TileIndex>::iterator const stop(indices.end());
+
+   for (size_t j = 0; j < nColTiles; ++j) {
+
+       size_t const nRows(C.nRows());
+       size_t const nCols(C(0,j).nCols());
+       size_t const nData(nRows*nCols);
+
+       TileArray<T>** tileArrays;
+       T* ptr;
+
+       #pragma omp parallel
+       {
+          int const nThreads(omp_get_num_threads());
+
+          #pragma omp single
+          {
+              std::cout << "TileArray Product with " << nThreads << " threads" << std::endl;
+              // In general this reallocation is inefficient, but 
+              // the loop over j is of length 1 for our case.
+              tileArrays = new TileArray<T>*[nThreads];
+              ptr = new T[nData*nThreads];
+          }
+
+          // Initialization
+          #pragma omp for
+          for (int n = 0; n < nThreads; ++n) {
+              int    iThread(omp_get_thread_num());
+              size_t offset(iThread*nData);
+
+              TileArray<T>* pTA = new TileArray<T>(nRowTiles,1);
+              tileArrays[iThread] = pTA;
+
+              for (size_t i = 0; i < nRowTiles; ++i) {
+                  CMTile<T>* pT = new CMTile<T>(C(i,j).nRows(), C(i,j).nCols());
+                  pTA->set(i,0, pT);
+              }
+
+              memset(ptr+offset,0,nData*sizeof(T));
+              pTA->bind(ptr+offset);
+          }
+ 
+          // Loop over tile products
+          #pragma omp for schedule(dynamic,1) 
+          for (iter = start; iter != stop; ++iter) {
+              int iThread(omp_get_thread_num());
+              size_t i(iter->first);
+              size_t k(iter->second);
+
+              if (i > k) {
+                 tile_product(A(k,i), B(k,j), T(1.0), tileArrays[iThread]->tile(i,0), CblasTrans);
+              }else {
+                 tile_product(A(i,k), B(k,j), T(1.0), tileArrays[iThread]->tile(i,0), CblasNoTrans);
+              }
+          }
+
+          // Reduce
+/*
+          #pragma omp single
+          for (int iThread = 0; iThread < nThreads; ++iThread) {
+              for (size_t i = 0; i < nRowTiles; ++i) {
+                  //std::cout << "Reduction for thread/i = " << iThread << " / " << i << std::endl;
+                  CMTile<T> const& t = dynamic_cast<CMTile<T> const&>(tileArrays[iThread]->tile(i,0));
+                  C(i,j) += t;
+              }
+          }
+*/
+          T* cData(C(0,j).data());
+          #pragma omp for 
+          for (size_t i = 0; i < nData; ++i) {
+              for (int n = 0; n < nThreads; ++n) {
+                  cData[i] += ptr[i+n*nData];
+              }
+          }
+
+          // Cleanup
+          #pragma omp for
+          for (int iThread = 0; iThread < nThreads; ++iThread) {
+              delete tileArrays[omp_get_thread_num()];
+          }
+       }
+
+
+       delete[] tileArrays;
+       delete[] ptr;
+   }
+}
 
 
 #endif

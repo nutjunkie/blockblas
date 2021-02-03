@@ -826,6 +826,8 @@ int test_22()
    TC.print("SymmetricTileArray product");
 
    TC -= TB;
+
+   TC.print("SymmetricTileArray difference");
    
    if (std::abs(TC.norm2()) > 1e-8) {
       std::cout << "FAILED: norm2 =" << TC.norm2() << std::endl;
@@ -897,6 +899,7 @@ int main()
    int ok(0);
 
    ok = ok 
+/*
       + test_1()
       + test_2()
       + test_3()
@@ -917,7 +920,6 @@ int main()
       + test_19()
       + test_20()
       + test_21()
-/*
 */
       + test_22()
       + test_23()
