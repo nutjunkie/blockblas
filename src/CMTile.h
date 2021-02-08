@@ -253,10 +253,9 @@ class CMTile : public Tile<T>
       }
 
 
-      void fill0()
+      void fill()
       {
-         if (!this->isBound()) this->alloc();
-
+         this->alloc();
          T* a0(this->data());
          size_t lda(this->m_leadingDim);
 
@@ -320,10 +319,13 @@ class CMTile : public Tile<T>
 
       void resize(size_t nRows, size_t nCols)
       {
-          this->dealloc();
-          this->m_nRows = nRows;
-          this->m_nCols = nCols;
-          m_leadingDim  = nRows;
+         if (this->m_nRows == nRows && 
+             this->m_nCols == nCols) return;
+
+         this->m_nRows = nRows;
+         this->m_nCols = nCols;
+         m_leadingDim  = nRows;
+         if (this->dealloc()) this->alloc();
       }
 
 
@@ -349,10 +351,9 @@ class CMTile : public Tile<T>
 
       void copy(CMTile<T> const& that)
       {
-         size_t nRows(that.nRows());
-         size_t nCols(that.nCols());
+         size_t const nRows(that.nRows());
+         size_t const nCols(that.nCols());
 
-         this->dealloc();
          resize(nRows,nCols);
 
          if (that.isBound()) {

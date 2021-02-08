@@ -120,7 +120,7 @@ int diagonalize(TT& A, unsigned const subspace, const double Emin, const double 
 
                CMTile<complex> vmQc(N,M0);
                DiagonalFunctor<complex> diag(complex(1.0,0.0));
-               vmQc.fill(diag);
+               vmQc.Tile<complex>::fill(diag);
 
                bmQc.bind(vmQc.data());
                bmBc.bind(workc);

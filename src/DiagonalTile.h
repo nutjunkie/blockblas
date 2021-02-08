@@ -25,7 +25,8 @@ class DiagonalTile : public Tile<T>
       }
 
 
-      DiagonalTile(Tile<T> const& that)
+      template <class U>
+      DiagonalTile(Tile<U> const& that)
       {
          copy(that);
       }
@@ -78,6 +79,7 @@ class DiagonalTile : public Tile<T>
 
       void invert()
       {
+         assert(this->m_nRows == this->m_nCols);
          T tmp;
          for (size_t i = 0; i < this->m_nData; ++i) {
              tmp = this->m_data[i];
@@ -94,12 +96,21 @@ class DiagonalTile : public Tile<T>
       }
 
 
-      template <typename U>
-      void takeDiagonal(CMTile<U> const&);
-
-
-   protected:
       void copy(Tile<T> const& that)
+      {
+         resize(that.nRows(), that.nCols());
+
+         if (that.isBound()) {
+            this->alloc();
+            for (size_t i = 0; i < this->m_nData; ++i) {
+                this->m_data[i] = that(i,i);
+            } 
+         }
+      }
+
+
+      template <class U>
+      void copy(Tile<U> const& that)
       {
          resize(that.nRows(), that.nCols());
 

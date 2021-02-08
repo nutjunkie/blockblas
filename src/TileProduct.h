@@ -140,21 +140,33 @@ void product(Tile<T> const& A, Tile<T> const& B, Tile<T>& C)
 // Note these product functions *accumulate* into C.
 // C must be initialized if this is not what you want.
 template <class T, class U>
-void product(TileArray<U> const& A, TileArray<T> const& B, TileArray<T>& C)
+void product(TileArray<U> const& A, TileArray<T> const& B, TileArray<T>& C,
+   CBLAS_TRANSPOSE const Atrans = CblasNoTrans)
 {
-   assert(A.nRowTiles() == C.nRowTiles());
-   assert(A.nColTiles() == B.nRowTiles());
-   assert(B.nColTiles() == C.nColTiles());
+   size_t nRowTiles(0);
+   size_t nColTiles(0);
 
-   size_t const nRowTiles(A.nRowTiles());
-   size_t const nColTiles(B.nColTiles());
+   if (Atrans == CblasNoTrans) {
+      assert(A.nRowTiles() == C.nRowTiles());
+      assert(A.nColTiles() == B.nRowTiles());
+      assert(B.nColTiles() == C.nColTiles());
+      nRowTiles = A.nRowTiles();
+      nColTiles = B.nColTiles();
+   }else {
+      assert(A.nColTiles() == C.nRowTiles());
+      assert(A.nRowTiles() == B.nRowTiles());
+      assert(B.nColTiles() == C.nColTiles());
+      nRowTiles = A.nColTiles();
+      nColTiles = B.nColTiles();
+   }
+
    unsigned bi, bj;
 #pragma omp parallel for private(bj) collapse(2)
    for (bi = 0; bi < nRowTiles; ++bi) {
        for (bj = 0; bj < nColTiles; ++bj) {
            for (unsigned k = 0; k < A.nColTiles(); ++k) {
                // !!! Accumulate into C !!!
-               tile_product(A(bi,k), B(k,bj), T(1.0), C(bi,bj));
+               tile_product(A(bi,k), B(k,bj), T(1.0), C(bi,bj), Atrans);
            }
        }
    }
@@ -264,7 +276,6 @@ void product(SymmetricTileArray<U> const& A, TileArray<T> const& B, TileArray<T>
 
           #pragma omp single
           {
-              std::cout << "TileArray Product with " << nThreads << " threads" << std::endl;
               // In general this reallocation is inefficient, but 
               // the loop over j is of length 1 for our case.
               tileArrays = new TileArray<T>*[nThreads];

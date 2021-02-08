@@ -172,7 +172,7 @@ class TileArray
       {
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
-                 tile(bi,bj).fill0();
+                 tile(bi,bj).fill();
              }
          }
       }
@@ -376,6 +376,8 @@ class TileArray
          m_nRowTiles = nRowTiles;
          m_nColTiles = nColTiles;
          m_tiles = new Tile<T>*[m_nRowTiles*m_nColTiles];
+         memset(m_tiles, 0, m_nRowTiles*m_nColTiles*sizeof(Tile<T>*));
+         
       }
 
 
@@ -401,28 +403,37 @@ class TileArray
 
       void copy(TileArray<T> const& that) 
       {
-         destroy();
-         m_nRowTiles = that.m_nRowTiles;
-         m_nColTiles = that.m_nColTiles;
+         size_t const nRowTiles(that.m_nRowTiles);
+         size_t const nColTiles(that.m_nColTiles);
 
-         m_tiles = new Tile<T>*[m_nRowTiles*m_nColTiles];
+         if (nRowTiles != m_nRowTiles ||
+             nColTiles != m_nColTiles) resize(nRowTiles,nColTiles);
 
-        for (unsigned col = 0; col < m_nColTiles; ++col) {
-            for (unsigned row = 0; row < m_nRowTiles; ++row) {
-                 m_tiles[row + col*m_nRowTiles] = TileFactory(that(row,col));
-            }
+         for (unsigned col = 0; col < m_nColTiles; ++col) {
+             for (unsigned row = 0; row < m_nRowTiles; ++row) {
+                 Tile<T> const& TB(that(row,col));
+/*
+                 Tile<T> const& TA(tile(row,col));
+                 if (TA.storage() == TB.storage() &&
+                     TA.nRows()   == TB.nRows()   &&
+                     TA.nCols()   == TB.nCols()) {
+                 }else {
+                 }
+*/
+                m_tiles[row + col*m_nRowTiles] = TileFactory(TB);
+             }
          }
-     }
+      }
 
 
-     void copy(Tile<T> const& that) 
-     {
+      void copy(Tile<T> const& that) 
+      {
          destroy();
          m_nRowTiles = 1;
          m_nColTiles = 1;
 
          m_tiles = new Tile<T>*[m_nRowTiles*m_nColTiles];
          m_tiles[0] = TileFactory(that);
-     }
+      }
 };
 #endif

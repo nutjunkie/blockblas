@@ -175,7 +175,7 @@ class SymmetricTileArray
       {
          for (size_t col = 0; col < m_nColTiles; ++col) {
              for (size_t row = 0; row <= col; ++row) {
-                 tile(row,col).fill0();
+                 tile(row,col).fill();
              }
          }
       }

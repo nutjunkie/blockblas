@@ -13,6 +13,7 @@
 #include <iostream>
 #include <iomanip>
 #include "Functor.h"
+#include "Log.h"
 
 
 template <class T>
@@ -43,7 +44,6 @@ class Tile
       { 
          dealloc(); 
       }
-
 
 
       void operator=(Tile<T> const& that)
@@ -78,9 +78,10 @@ class Tile
 
 
       // Allocates sufficient space for the Tile based on its storage type.
+      // Does not reallocate if bound.
       Tile<T>& alloc() 
       {
-         if (m_data) dealloc();
+         if (m_data) return *this;
          m_nData   = numData();
          m_data    = new T[m_nData];
          m_ownData = true;
@@ -88,12 +89,18 @@ class Tile
       }
 
 
-      void dealloc() 
+      // Returns if data is actually delelted.
+      bool dealloc() 
       {
-         if (m_ownData && m_data) delete [] m_data;
+         bool dataDeleted(m_ownData && m_data);
+
+         if (dataDeleted) delete [] m_data;
+
          m_data    = 0;
          m_nData   = 0;
          m_ownData = false;
+
+         return dataDeleted;
       }
 
 
@@ -106,18 +113,17 @@ class Tile
       // This 'borrows' the memory (shared pointer?)
       Tile& bind(T* data)
       {
-         if (isBound()) dealloc();
+         dealloc();
          m_ownData = false;
-         m_nData = numData();
-         m_data  = data;
+         m_nData   = numData();
+         m_data    = data;
          return *this;
       }
 
 
-      virtual void fill0()
+      virtual void fill()
       {
-         if (!isBound()) alloc();
-         std::cerr << "memset length " << m_nData*sizeof(T) << "  = " << m_nData << "x" << sizeof(T) << "  => " << m_nRows << "x" << m_nCols << std::endl;
+         alloc();
          memset(m_data, 0, m_nData*sizeof(T));
       }
 
@@ -125,7 +131,7 @@ class Tile
       // The following functions are inefficient and are for convenience only.
       void fill(Functor<T> const& functor)
       {
-         if (!isBound()) alloc();
+         alloc();
 
          for (size_t j = 0; j < m_nCols; ++j) {
              for (size_t i = 0; i < m_nRows; ++i) {
@@ -136,6 +142,13 @@ class Tile
 
 
       T operator()(size_t const i, size_t const j) const
+      {
+          size_t idx(indexOf(i,j));
+          return idx < m_nData ? m_data[idx] : T();
+      }
+
+
+      T get(size_t const i, size_t const j) const
       {
           size_t idx(indexOf(i,j));
           return idx < m_nData ? m_data[idx] : T();
@@ -226,6 +239,11 @@ class Tile
 
       virtual double norm2() const;
 
+      virtual void invert() 
+      {
+          Log::error("ERROR: invert() called on invalid Tile");
+      }
+
 
    protected:
       size_t m_nRows;       
@@ -240,9 +258,10 @@ class Tile
 
       virtual void resize(size_t nRows, size_t nCols) 
       {
-         dealloc();
+         if (m_nRows == nRows && m_nCols == nCols) return;
          m_nRows = nRows;
          m_nCols = nCols;
+         if (dealloc()) alloc();
       }
 };
 

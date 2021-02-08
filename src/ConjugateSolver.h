@@ -12,13 +12,7 @@
 // Allows for different types of A and X
 template <template<class> class TT, class T, class U>
 int conjugate_gradient(TT<U> const& A, TileArray<T>& X, TileArray<T> const& B, T const root)
-//int conjugate_gradient(TileArray<U> const& A, TileArray<T>& X, TileArray<T> const& B, T const root)
 {
-   //A.print("A matrix ---");
-   //B.print("b vector ---");
-   //X.print("x vector ---");
-   //
-   
    unsigned N(B.nRows());
    unsigned nRHS(B.nCols());
    unsigned nBlocks(A.nRowTiles());
@@ -29,25 +23,16 @@ int conjugate_gradient(TT<U> const& A, TileArray<T>& X, TileArray<T> const& B, T
    // S template
    TileArray<T> S(nBlocks,1);
 
-   //CMTile<T>** M = new CMTile<T>*[nBlocks];
    DiagonalTile<T>** M = new DiagonalTile<T>*[nBlocks];
 
    for (unsigned i = 0; i < nBlocks; ++i) {
        size_t n(A(i,i).nRows());
-       //M[i] = new CMTile<T>(A(i,i));
-       M[i] = new DiagonalTile<T>(n,n);
-       CMTile<U> const& Aii(static_cast<CMTile<U> const&>(A(i,i)));
-       M[i]->takeDiagonal(Aii);
-
+       M[i] = new DiagonalTile<T>(A(i,i));
        M[i]->addToDiag(root);
        M[i]->invert();
        S.set(i,0, new CMTile<T>(B(i,0).nRows(),B(i,0).nCols()));
    }
 
-
-   // X Array
-   CMTile<T>    x(N,nRHS);
-   x.bind(X(0,0).data());
 
    // P Array
    TileArray<T> P(S);
@@ -65,11 +50,6 @@ int conjugate_gradient(TT<U> const& A, TileArray<T>& X, TileArray<T> const& B, T
    CMTile<T>    r(B);
    R.bind(r.data());
 
-   // Z Array (residual)
-   TileArray<T> Z(S);
-   CMTile<T>    z(N,nRHS);
-   z.alloc();
-   Z.bind(z.data());
 
    // Lambda
    TileArray<T> Lambda(1,1);
@@ -77,25 +57,34 @@ int conjugate_gradient(TT<U> const& A, TileArray<T>& X, TileArray<T> const& B, T
    CMTile<T> lambda(nRHS,nRHS);
    lambda.alloc();
    Lambda.bind(lambda.data());
+
+   // Psi
+   TileArray<T> Psi(1,1);
+   Psi.set(0,0, new CMTile<T>(nRHS,nRHS));
+   CMTile<T> psi(nRHS,nRHS);
+   psi.alloc();
+   Psi.bind(psi.data());
+
    
    // small arrays
    CMTile<T> rtz(nRHS,nRHS);
-   CMTile<T> psi(nRHS,nRHS);
 
    rtz.alloc();
-   psi.alloc();
 
    Q.scale(root);
    R.scale(-one);
-   r += q;
+   R += Q;
    product(A,X,R);
-   //R.print("R mat");
+
+   //Z Array (residual)
+   TileArray<T> Z(S);
+   CMTile<T>    z(N,nRHS);
+   z.alloc();
+   Z.bind(z.data());
 
    for (unsigned i = 0; i < nBlocks; ++i) {
        tile_product(*M[i], R(i,0), zero, Z(i,0));
-       //M[i]->print("M inverse");
    }
-   //Z.print("Z mat");
 
    //std::cout << "Pointers: " << r.data() << " <-> " << R(0,0).data() << std::endl;
    //r.print("r");
@@ -115,22 +104,24 @@ int conjugate_gradient(TT<U> const& A, TileArray<T>& X, TileArray<T> const& B, T
        q = p;       
        q.scale(root);
        product(A,P,Q);                           // Q <- A.P
-       //Q.print("Q mat");
 
        // Line 2:
+       //Psi(0,0).fill();
+       //product(P, Q, Psi, CblasTrans); // psi <- p^t.q                       //zgemm
+       //Psi.print("First Psi");
+       
+       Psi(0,0).fill();
        tile_product(p, q, zero, psi, CblasTrans); // psi <- p^t.q                       //zgemm
-       psi.invert();
+       //Psi.print("Second psi");
+
+       Psi(0,0).invert();
        tile_product(psi, rtz, zero, lambda);                                            //zgemm
-       //Lambda.print("lambda mat");
 
        // Line 3:
-       //product(p,lambda,x);  // X <- X + P.Lambda                                       //zgemm
        product(P,Lambda,X);  // X <- X + P.Lambda                                       //zgemm
-       //X.print("X mat");
 
        // Line 4:
        product(Q,Lambda,R);  // R <- R + Q.Lambda
-       //R.print("R mat");
 
        res = std::sqrt(r.norm2());
        //std::cout << iter << " Residue = " << res << std::endl;
@@ -138,7 +129,7 @@ int conjugate_gradient(TT<U> const& A, TileArray<T>& X, TileArray<T> const& B, T
 
 
        // Line 5:
-#pragma omp parallel for 
+       #pragma omp parallel for 
        for (unsigned i = 0; i < nBlocks; ++i) {
            tile_product(*M[i], R(i,0), zero, Z(i,0));
        }
@@ -146,24 +137,20 @@ int conjugate_gradient(TT<U> const& A, TileArray<T>& X, TileArray<T> const& B, T
        // Line 6:
        lambda = rtz; 
        tile_product(r, z, zero, rtz, CblasTrans); // rtz <- r^t.z
-       //rtz.print("RtZ mat");
 
        // Line 7:
-       lambda.invert();
+       Lambda(0,0).invert();
        tile_product(lambda, rtz, zero, psi);
-       //psi.print("psi mat");
 
        // Line 8:
        tile_product(p, psi, zero, q);
        p = q;
        p -= z;
-       //q.print("q mat");
-       //p.print("p mat");
    }
 
    if (iter < MAX_ITER) {
       std::cout << std::fixed << std::showpoint << std::setprecision(10);
-      //std::cout << "CONVERGED, iterations "<< iter << "  residue: " << res << std::endl;
+      std::cout << "CONVERGED, iterations "<< iter << "  residue: " << res << std::endl;
    }else {
       std::cout << "FAILED to converge: " << res;
       iter *= -1;
