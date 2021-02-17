@@ -141,14 +141,14 @@ class Tile
       }
 
 
-      T operator()(size_t const i, size_t const j) const
+      T operator()(size_t const i, size_t const j = 0) const
       {
           size_t idx(indexOf(i,j));
           return idx < m_nData ? m_data[idx] : T();
       }
 
 
-      T get(size_t const i, size_t const j) const
+      T get(size_t const i, size_t const j = 0) const
       {
           size_t idx(indexOf(i,j));
           return idx < m_nData ? m_data[idx] : T();

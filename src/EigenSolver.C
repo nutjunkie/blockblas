@@ -2,6 +2,7 @@
 #include "CMTile.h"
 #include "Log.h"
 #include "Timer.h"
+#include <mkl.h>
 
 template <>
 void eigenvalues(TileArray<double> const& A)

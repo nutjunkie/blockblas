@@ -23,7 +23,7 @@ class CMTile : public Tile<T>
       }
 
 
-      CMTile(CMTile<T> const& that)
+      CMTile(CMTile<T> const& that) : Tile<T>(0,0)
       {
          copy(that);
       }

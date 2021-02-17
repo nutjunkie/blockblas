@@ -1,3 +1,4 @@
+#include "mkl.h"
 #include "TileProduct.h"
 
 
@@ -11,11 +12,22 @@ void tile_product(CMTile<double> const& A, CMTile<double> const& B,
 
    if (Atrans == CblasTrans) {
       std::swap(aRows,aCols);
+      //std::cout << "Trans trigger" << std::endl;
    }
 
-   cblas_dgemm(CblasColMajor, Atrans, CblasNoTrans, 
-      aRows, B.nCols(), aCols, 1.0, A.data(), A.leadingDim(),
-      B.data(), B.leadingDim(), beta, C.data(), C.leadingDim());
+   //std::cout << "A rows/cols " << aRows << "/" << aCols << std::endl;
+   //std::cout << "B rows/cols " << B.nRows() << "/" << B.nCols() << std::endl;
+   //std::cout << "C rows/cols " << C.nRows() << "/" << C.nCols() << std::endl;
+
+   //if (A.nRows() == 1 && A.nCols() == 1 &&
+   //    B.nRows() == 1 && B.nCols() == 1 &&
+   //    C.nRows() == 1 && C.nCols() == 1) {
+   //    C.set(0,0, A(0,0)*B(0,0) + beta*C(0,0));
+   //}else {
+      cblas_dgemm(CblasColMajor, Atrans, CblasNoTrans, 
+         aRows, B.nCols(), aCols, 1.0, A.data(), A.leadingDim(),
+         B.data(), B.leadingDim(), beta, C.data(), C.leadingDim());
+   //}
 }
 
 

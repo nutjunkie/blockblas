@@ -22,7 +22,7 @@ class TileArray
    public:
 
       TileArray(size_t const nRowTiles = 0, size_t const nColTiles = 0) :
-         m_nRowTiles(nRowTiles), m_nColTiles(nColTiles), m_tiles(0)
+         m_nRowTiles(nRowTiles), m_nColTiles(nColTiles), m_tiles(0), m_contiguous(false)
       {
          size_t nTiles(m_nRowTiles*m_nColTiles);
          if (nTiles > 0) {
@@ -65,6 +65,7 @@ class TileArray
             if (m_tiles[idx]) delete m_tiles[idx];
             m_tiles[idx] = tile;
          }
+         m_contiguous = false;
       }
 
 
@@ -73,11 +74,13 @@ class TileArray
       {
          resize(that.nRowTiles(), that.nColTiles());
 
+#pragma omp parallel for collapse(2)
          for (unsigned col = 0; col < m_nColTiles; ++col) {
              for (unsigned row = 0; row < m_nRowTiles; ++row) {
                  m_tiles[row + col*m_nRowTiles] = TileFactory2<T,U>(that(row,col));
             }
          }
+         m_contiguous = false;
       }
 
 
@@ -86,7 +89,7 @@ class TileArray
          assert(that.nRowTiles() == m_nRowTiles);
          assert(that.nColTiles() == m_nColTiles);
 
-#pragma omp parallel for
+#pragma omp parallel for collapse(2)
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
                  tile(bi,bj) += that(bi,bj);
@@ -101,7 +104,7 @@ class TileArray
          assert(that.nRowTiles() == m_nRowTiles);
          assert(that.nColTiles() == m_nColTiles);
 
-#pragma omp parallel for
+#pragma omp parallel for collapse(2)
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
                  tile(bi,bj) -= that(bi,bj);
@@ -160,6 +163,7 @@ class TileArray
       template <class T>
       void fill(Functor<T>& functor) 
       {
+#pragma omp parallel for collapse(2)
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
                  tile(bi,bj).fill(functor);
@@ -170,6 +174,7 @@ class TileArray
  
       void fill() 
       {
+#pragma omp parallel for collapse(2)
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
                  tile(bi,bj).fill();
@@ -191,12 +196,14 @@ class TileArray
                   d0 += cmt.nRows();
              }
           }
+          m_contiguous = true;
       }
 
 
       template <class T>
       void scale(T const t) 
       {
+#pragma omp parallel for collapse(2)
          for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
              for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
                  tile(bi,bj).scale(t);
@@ -208,12 +215,14 @@ class TileArray
       // This will blow up if the Tiles are not all dense
       void reduce() 
       {
+#pragma omp parallel for collapse(2)
          for (unsigned bj = 0; bj < m_nColTiles; ++bj) {
               for (unsigned bi = 0; bi < m_nRowTiles; ++bi) {
                  CMTile<T>& cmt = dynamic_cast<CMTile<T>&>(tile(bi,bj));
                  set(bi,bj,cmt.reduce());
              }
          }
+         m_contiguous = false;
       }
 
 
@@ -252,6 +261,11 @@ class TileArray
          return n;
       }
 
+
+      bool contiguous() const
+      {
+          return m_contiguous;
+      }
 
       bool consistent() const
       {
@@ -311,11 +325,12 @@ class TileArray
       {
          if (msg)  os << msg << std::endl;
 
-         os << "Number of row blocks: :    " << nRowTiles() << std::endl;
-         os << "Number of column blocks:   " << nColTiles() << std::endl;
-         os << "Total number of rows:      " << nRows() << std::endl;
-         os << "Total number of columns:   " << nCols() << std::endl;
+         os << "Number of row blocks: :  " << nRowTiles() << std::endl;
+         os << "Number of column blocks: " << nColTiles() << std::endl;
+         os << "Total number of rows:    " << nRows() << std::endl;
+         os << "Total number of columns: " << nCols() << std::endl;
          os << "TileArray is consistent: " << (consistent() ? "true" : "false") << std::endl;
+         os << "TileArray is contiguous: " << (contiguous() ? "true" : "false") << std::endl;
          os << std::endl;
 
          os << "Tile sizes:" << std::endl;
@@ -353,13 +368,6 @@ class TileArray
                      unsigned nc = m.nCols();
                      for (unsigned j = 0; j < nc; ++j) {
                             os << std::setw(5) << m(i,j) << " ";
-/*
-                         if (m(i,j) == 0) {
-                            os << "    . ";
-                         }else {
-                            os << std::setw(5) << m(i,j) << " ";
-                         }
-*/
                      }
                      os << " ";
                 }
@@ -385,6 +393,7 @@ class TileArray
       size_t m_nRowTiles;
       size_t m_nColTiles;
       Tile<T>** m_tiles;
+      bool   m_contiguous;
 
 
       void destroy()
@@ -398,6 +407,7 @@ class TileArray
          }
 
          m_tiles = 0;
+         m_contiguous = false;
       }
 
 
@@ -406,20 +416,12 @@ class TileArray
          size_t const nRowTiles(that.m_nRowTiles);
          size_t const nColTiles(that.m_nColTiles);
 
-         if (nRowTiles != m_nRowTiles ||
-             nColTiles != m_nColTiles) resize(nRowTiles,nColTiles);
+         resize(nRowTiles,nColTiles);
 
+#pragma omp parallel for collapse(2)
          for (unsigned col = 0; col < m_nColTiles; ++col) {
              for (unsigned row = 0; row < m_nRowTiles; ++row) {
                  Tile<T> const& TB(that(row,col));
-/*
-                 Tile<T> const& TA(tile(row,col));
-                 if (TA.storage() == TB.storage() &&
-                     TA.nRows()   == TB.nRows()   &&
-                     TA.nCols()   == TB.nCols()) {
-                 }else {
-                 }
-*/
                 m_tiles[row + col*m_nRowTiles] = TileFactory(TB);
              }
          }
@@ -428,12 +430,14 @@ class TileArray
 
       void copy(Tile<T> const& that) 
       {
-         destroy();
-         m_nRowTiles = 1;
-         m_nColTiles = 1;
+         size_t const nRowTiles(1);
+         size_t const nColTiles(1);
 
-         m_tiles = new Tile<T>*[m_nRowTiles*m_nColTiles];
+         if (nRowTiles != m_nRowTiles ||
+             nColTiles != m_nColTiles) resize(nRowTiles,nColTiles);
+
          m_tiles[0] = TileFactory(that);
+         m_contiguous = true;
       }
 };
 #endif

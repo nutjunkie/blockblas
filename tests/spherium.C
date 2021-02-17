@@ -25,9 +25,7 @@
 
 int simonSays();
 int simonSaysLess();
-int spherium90_10();
 int spherium90_512();
-
 
 
 
@@ -45,7 +43,6 @@ int main(int argc, char **argv)
        std::cout << "Running on " << numprocs << " procesors" << std::endl;
     }
     //rv = simonSaysLess();
-    //rv = spherium90_10();
     rv = spherium90_512();
 
 #ifdef MYMPI
@@ -127,45 +124,6 @@ int spherium90_512()
    return rv;
 }
 
-
-
-int spherium90_10()
-{
-   unsigned nBlocks  = 11;
-   unsigned blocks[] = { 1, 6, 6, 5, 5, 4, 5, 6, 5, 4, 3};
-
-   TileArray<double> TA(nBlocks,nBlocks);
-   for (unsigned bi = 0; bi < TA.nRowTiles(); ++bi) {
-       for (unsigned bj = 0; bj < TA.nColTiles(); ++bj) {
-           TA.set(bi,bj, new CMTile<double>(blocks[bi],blocks[bj]));
-       }
-   }
-
-   std::vector<double> mat(readFile("mat10"));
-   std::cout << "Number of matrix entries read: " << mat.size() << std::endl;
-   TA.bind(&mat[0]);
-
-   Timer timer;
-   timer.start();
-   eigenvalues(TA);
-   timer.stop();
-   std::cout << "LAPACK time: " << timer.format() << std::endl;
-
-   unsigned subspace(5);
-   double const Emin(46.0);
-   double const Emax(55.0);
-
-   // Reduce the dense matrices to bespoke storage
-   // TA.reduce();
-
-   timer.start();
-   int rv = diagonalize(TA, subspace, Emin, Emax);
-   timer.stop();
-
-   std::cout << "FEAST time: " << timer.format() << std::endl;
-
-   return rv;
-}
 
 
 int simonSays()

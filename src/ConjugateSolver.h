@@ -25,6 +25,7 @@ int conjugate_gradient(TT<U> const& A, TileArray<T>& X, TileArray<T> const& B, T
 
    DiagonalTile<T>** M = new DiagonalTile<T>*[nBlocks];
 
+   #pragma omp parallel for 
    for (unsigned i = 0; i < nBlocks; ++i) {
        size_t n(A(i,i).nRows());
        M[i] = new DiagonalTile<T>(A(i,i));
@@ -34,99 +35,81 @@ int conjugate_gradient(TT<U> const& A, TileArray<T>& X, TileArray<T> const& B, T
    }
 
 
-   // P Array
+   // The product() function assumes the data in these arrays is contiguous
+   // The CMTiles are just a convenient way of ensuring this.
+
    TileArray<T> P(S);
    CMTile<T>    p(N,nRHS);
    p.alloc();
    P.bind(p.data());
 
-   // Q Array (AP)
    TileArray<T> Q(S);
    CMTile<T>    q(X);
    Q.bind(q.data());
 
-   // R Array (residual)
    TileArray<T> R(S);
    CMTile<T>    r(B);
    R.bind(r.data());
 
+   TileArray<T> Z(S);
+   CMTile<T>    z(N,nRHS);
+   z.alloc();
+   Z.bind(z.data());
 
-   // Lambda
+
+   // Tiny tiles
    TileArray<T> Lambda(1,1);
    Lambda.set(0,0, new CMTile<T>(nRHS,nRHS));
-   CMTile<T> lambda(nRHS,nRHS);
-   lambda.alloc();
-   Lambda.bind(lambda.data());
+   Lambda(0,0).alloc();
 
-   // Psi
    TileArray<T> Psi(1,1);
    Psi.set(0,0, new CMTile<T>(nRHS,nRHS));
-   CMTile<T> psi(nRHS,nRHS);
-   psi.alloc();
-   Psi.bind(psi.data());
-
+   Psi(0,0).alloc();
    
-   // small arrays
-   CMTile<T> rtz(nRHS,nRHS);
+   TileArray<T> RtZ(1,1);
+   RtZ.set(0,0, new CMTile<T>(nRHS,nRHS));
+   RtZ(0,0).fill();
 
-   rtz.alloc();
 
    Q.scale(root);
    R.scale(-one);
    R += Q;
    product(A,X,R);
 
-   //Z Array (residual)
-   TileArray<T> Z(S);
-   CMTile<T>    z(N,nRHS);
-   z.alloc();
-   Z.bind(z.data());
-
+   #pragma omp parallel for 
    for (unsigned i = 0; i < nBlocks; ++i) {
-       tile_product(*M[i], R(i,0), zero, Z(i,0));
+       tile_product(*M[i], R(i,0), zero, P(i,0));
    }
 
-   //std::cout << "Pointers: " << r.data() << " <-> " << R(0,0).data() << std::endl;
-   //r.print("r");
-   tile_product(r, z, zero, rtz, CblasTrans); // rtz <- r^t.z                        //zgemm
-   //rtz.print("RtZ");
+   product(R, P, RtZ, CblasTrans); // rtz <- r^t.z                        //zgemm
 
-   p = z;
-   p.scale(-one);
-   //P.print("P mat");
+   P.scale(-one);
 
    double res(0.0);
    unsigned iter(0);
 
-   //A.addToDiag(root);
    for (iter = 0; iter < MAX_ITER; ++iter) {
        // Line 1:
-       q = p;       
-       q.scale(root);
-       product(A,P,Q);                           // Q <- A.P
+       memcpy(q.data(), p.data(), N*nRHS*sizeof(T));
+       Q.scale(root);
+       product(A,P,Q);                        // Q <- (A-root I).P
 
        // Line 2:
-       //Psi(0,0).fill();
-       //product(P, Q, Psi, CblasTrans); // psi <- p^t.q                       //zgemm
-       //Psi.print("First Psi");
-       
        Psi(0,0).fill();
-       tile_product(p, q, zero, psi, CblasTrans); // psi <- p^t.q                       //zgemm
-       //Psi.print("Second psi");
-
+       product(P, Q, Psi, CblasTrans);        // psi <- p^t.q         //zgemm
+       
        Psi(0,0).invert();
-       tile_product(psi, rtz, zero, lambda);                                            //zgemm
+       Lambda(0,0).fill();
+       product(Psi, RtZ, Lambda);             // Lambda = Psi.RTZ     //zgemm 
 
        // Line 3:
-       product(P,Lambda,X);  // X <- X + P.Lambda                                       //zgemm
+       product(P,Lambda,X);                   // X <- X + P.Lambda    //zgemm
 
        // Line 4:
-       product(Q,Lambda,R);  // R <- R + Q.Lambda
+       product(Q,Lambda,R);                   // R <- R + Q.Lambda    //zgemm
 
-       res = std::sqrt(r.norm2());
-       //std::cout << iter << " Residue = " << res << std::endl;
+       res = std::sqrt(R.norm2());
        if (res < 1e-10) break;
-
 
        // Line 5:
        #pragma omp parallel for 
@@ -135,17 +118,21 @@ int conjugate_gradient(TT<U> const& A, TileArray<T>& X, TileArray<T> const& B, T
        }
 
        // Line 6:
-       lambda = rtz; 
-       tile_product(r, z, zero, rtz, CblasTrans); // rtz <- r^t.z
+       Lambda = RtZ; 
+       RtZ(0,0).fill();
+       product(R, Z, RtZ, CblasTrans);  // rtz <- r^t.z
 
        // Line 7:
        Lambda(0,0).invert();
-       tile_product(lambda, rtz, zero, psi);
+       Psi(0,0).fill();
+       product(Lambda, RtZ, Psi);
 
        // Line 8:
-       tile_product(p, psi, zero, q);
-       p = q;
-       p -= z;
+       Q.fill();
+       product(P, Psi, Q);    // Q = P.Psi
+
+       memcpy(p.data(), q.data(), N*nRHS*sizeof(T));
+       P -= Z;
    }
 
    if (iter < MAX_ITER) {

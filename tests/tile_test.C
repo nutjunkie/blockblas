@@ -1,15 +1,20 @@
+#include "Types.h"
+#include <mkl.h>
+
 #include "util.h"
 #include "ZeroTile.h"
 #include "DiagonalTile.h"
 #include "StripedTile.h"
 #include "CMTile.h"
+
 #include "TileProduct.h"
-#include "TileArray.h"
-#include "SymmetricTileArray.h"
 #include "EigenSolver.h"
 
 #include "JacobiSolver.h"
 #include "ConjugateSolver.h"
+#include "Diagonalize.h"
+#include "Davidson.h"
+#include "Timer.h"
 
 
 DebugFunctor<double> df;
@@ -99,11 +104,11 @@ int test_4()
    CMTile<double> v(5,5);
    CMTile<double> u(3,3);
    v.bind(m);   
-   v.fill0();
+   v.fill();
 
    u.bind(m,5);   
    u.info();
-   u.fill(df);
+   u.Tile<double>::fill(df);
    u.print("u (3x3) from array");
 
    v.info();   
@@ -132,10 +137,10 @@ int test_5()
    CMTile<double> A(10,6), B(6,8), C(10,8);
 
    A.bind(a);
-   A.fill(df);
+   A.Tile<double>::fill(df);
 
    B.bind(b,10);  // give b a different leading dimension
-   B.fill(df);
+   B.Tile<double>::fill(df);
 
    C.bind(c);
 
@@ -181,12 +186,12 @@ int test_6()
 
    std::vector<int> stripes{-3,-1,0,1,3};
    StripedTile<double> A(10,6,stripes);
-   A.fill(StencilFunctor<double>());
+   A.Tile<double>::fill(StencilFunctor<double>());
 
    CMTile<double> B(6,8), C(10,8), Cc(10,8);
-   B.fill(df);
-   C.fill0();
-   Cc.fill0();
+   B.Tile<double>::fill(df);
+   C.Tile<double>::fill();
+   Cc.Tile<double>::fill();
 
    B.print("Matrix B");
 
@@ -219,10 +224,10 @@ int test_7()
    CMTile<double> A(8,12);
    double a[120];
    A.bind(a,10);
-   A.fill(df);
+   A.Tile<double>::fill(df);
 
    DiagonalTile<double> D(8,12);
-   D.fill(df);
+   D.Tile<double>::fill(df);
 
    A += D;
    A.print("After adding diagonal");
@@ -256,7 +261,7 @@ int test_8()
    for (unsigned bi = 0; bi < nRows; ++bi) {
        for (unsigned bj = 0; bj < nCols; ++bj) {
            TA.set(bi,bj, new CMTile<double>(nR,nC));
-           TA(bi,bj).fill(df);
+           TA(bi,bj).Tile<double>::fill(df);
        }
    }
 
@@ -309,10 +314,10 @@ int test_9()
 
 
    for (unsigned row = 0; row < nBlocks; ++row) {
-       b(row,0).fill(df);
-       x(row,0).fill(ZeroFunctor<double>());
+       b(row,0).Tile<double>::fill(df);
+       x(row,0).Tile<double>::fill(ZeroFunctor<double>());
        for (unsigned col = 0; col < nBlocks; ++col) {
-           A(row,col).fill(TestFunctor(A.rowOffset(row),A.colOffset(col)));
+           A(row,col).Tile<double>::fill(TestFunctor(A.rowOffset(row),A.colOffset(col)));
        }
    }
 
@@ -349,7 +354,7 @@ int test_10()
    unsigned nEigen(3);
 
    CMTile<T> pA(nBlocks*blockDim,nBlocks*blockDim);
-   pA.fill(StencilFunctor<T>(1.0));
+   pA.Tile<double>::fill(StencilFunctor<T>(1.0));
 
    TileArray<T> A(nBlocks,nBlocks);
    TileArray<T> b(nBlocks,1);
@@ -366,8 +371,8 @@ int test_10()
 
 
    for (unsigned row = 0; row < nBlocks; ++row) {
-       b(row,0).fill(DebugFunctor<T>());
-       x(row,0).fill(ZeroFunctor<T>());
+       b(row,0).Tile<double>::fill(DebugFunctor<T>());
+       x(row,0).Tile<double>::fill(ZeroFunctor<T>());
    }
 
    A.bind(pA.data());
@@ -390,7 +395,7 @@ int test_10()
    }else {
       return 0;
       TileArray<T> result(x);
-      result.fill();
+      result.Tile<double>::fill();
       product(A, x, result);
       result -= b;
       result.print("Residual vector(s)");
@@ -417,7 +422,7 @@ int test_11()
    }
 
    CMTile<double> pA(A.nRows(), A.nCols());
-   pA.fill(DebugFunctor<double>());
+   pA.Tile<double>::fill(DebugFunctor<double>());
    A.bind(pA.data());
 
    A.print("TileArray A:");
@@ -440,7 +445,7 @@ int test_12()
    unsigned nEigen(3);
 
    CMTile<double> pA(nBlocks*blockDim,nBlocks*blockDim);
-   pA.fill(StencilFunctor<double>(1.0));
+   pA.Tile<double>::fill(StencilFunctor<double>(1.0));
 
    TileArray<double> A(nBlocks,nBlocks);
 
@@ -465,7 +470,7 @@ int test_13()
    unsigned blockDim(3);
 
    CMTile<complex> pA(nBlocks*blockDim,nBlocks*blockDim);
-   pA.fill(StencilFunctor<complex>(1.0));
+   pA.Tile<complex>::fill(StencilFunctor<complex>(1.0));
 
    TileArray<complex> A(nBlocks,nBlocks);
 
@@ -496,9 +501,9 @@ int test_14()
            A.set(row, col, new CMTile<double>(blockDim,blockDim));
            B.set(row, col, new CMTile<double>(blockDim,blockDim));
            C.set(row, col, new CMTile<double>(blockDim,blockDim));
-           A(row, col).fill(TestFunctor());
-           B(row, col).fill(TestFunctor());
-           C(row, col).fill0();
+           A(row, col).Tile<double>::fill(TestFunctor());
+           B(row, col).Tile<double>::fill(TestFunctor());
+           C(row, col).Tile<double>::fill();
        }
    }
 
@@ -519,7 +524,7 @@ int test_15()
    unsigned nEigen(3);
 
    CMTile<T> pA(nBlocks*blockDim,nBlocks*blockDim);
-   pA.fill(StencilFunctor<T>(1.0));
+   pA.Tile<double>::fill(StencilFunctor<T>(1.0));
 
    TileArray<T> A(nBlocks,nBlocks);
    TileArray<T> b(nBlocks,1);
@@ -536,8 +541,8 @@ int test_15()
 
 
    for (unsigned row = 0; row < nBlocks; ++row) {
-       b(row,0).fill(DebugFunctor<T>());
-       x(row,0).fill(ZeroFunctor<T>());
+       b(row,0).Tile<double>::fill(DebugFunctor<T>());
+       x(row,0).Tile<double>::fill(ZeroFunctor<T>());
    }
 
    A.bind(pA.data());
@@ -560,7 +565,7 @@ int test_15()
    }else {
       return 0;
       TileArray<T> result(x);
-      result.fill();
+      result.Tile<double>::fill();
       product(A, x, result);
       result -= b;
       result.print("Residual vector(s)");
@@ -584,10 +589,10 @@ int test_16()
    CMTile<double> A(6,9), B(6,8), C(9,8);
 
    A.bind(a);
-   A.fill(df);
+   A.Tile<double>::fill(df);
 
    B.bind(b,10);  // give b a different leading dimension
-   B.fill(df);
+   B.Tile<double>::fill(df);
 
    C.bind(c,10);
 
@@ -617,10 +622,10 @@ int test_17()
    CMTile<double> B(6,8), C(6,8);
 
    A.bind(a);
-   A.fill(df);
+   A.Tile<double>::fill(df);
 
    B.bind(b,10);  // give b a different leading dimension
-   B.fill(df);
+   B.Tile<double>::fill(df);
 
    C.bind(c,10);
 
@@ -647,11 +652,11 @@ int test_18()
    print_header(18, "Real/Imaginary parts");
 
    CMTile<complex> A(10,5);
-   A.fill(DebugFunctor<complex>());
+   A.Tile<complex>::fill(DebugFunctor<complex>());
    A.scale(complex(2.0,1.5));
 
    CMTile<double>  B(10,5);
-   B.fill(DebugFunctor<double>());
+   B.Tile<double>::fill(DebugFunctor<double>());
 
    B.scale(2.0);
 
@@ -668,7 +673,7 @@ int test_18()
       return 1;
    }
 
-   B.fill(DebugFunctor<double>());
+   B.Tile<double>::fill(DebugFunctor<double>());
    B.scale(1.5);
 
    A.getImag(Ar);
@@ -689,16 +694,16 @@ int test_19()
    print_header(19, "Real/Imaginary parts");
 
    CMTile<complex> A(10,5);
-   A.fill(DebugFunctor<complex>());
+   A.Tile<complex>::fill(DebugFunctor<complex>());
    A.scale(complex(2.0,1.5));
 
    CMTile<double>  B(10,5);
-   B.fill(DebugFunctor<double>());
+   B.Tile<double>::fill(DebugFunctor<double>());
    B.scale(-2.0);
 
    A.addReal(B);
 
-   B.fill(DebugFunctor<double>());
+   B.Tile<double>::fill(DebugFunctor<double>());
    B.scale(-1.5);
 
    A.addImag(B);
@@ -726,10 +731,10 @@ int test_20()
    complex zero(0.0);
    complex scale(1.0,1.5);
 
-   A.fill(DebugFunctor<double>());
-   B.fill(DebugFunctor<complex>());
+   A.Tile<double>::fill(DebugFunctor<double>());
+   B.Tile<complex>::fill(DebugFunctor<complex>());
    B.scale(scale);
-   D.fill0();
+   D.Tile<complex>::fill();
    D.addReal(A);
    C1.alloc();
    C2.alloc();
@@ -758,11 +763,11 @@ int test_21()
 
    std::vector<int> stripes = {-1,1,4};
    StripedTile<double> st(6,10,stripes);
-   st.fill(df);
+   st.Tile<double>::fill(df);
    st.print("Striped matrix");
 
    CMTile<double> A(6,8);
-   A.fill(DebugFunctor<double>());
+   A.Tile<double>::fill(DebugFunctor<double>());
    A.print("Dense matrix");
 
    CMTile<double> B(10,8);
@@ -788,11 +793,11 @@ int test_22()
    TileArray<double> TB(nTiles, nTiles);
    TileArray<double> TC(nTiles, nTiles);
 
-   int dim[] = {1,2,3,4};
+      int dim[] = {1,2,3,4};
 
    // This is not good, the TestFunctor can't be used here becase it relies on 
    // the existence of the last colum of tiles.  So we need to allocate before
-   // filling.
+   // Tile<double>::filling.
    for (unsigned bj = 0; bj < nTiles; ++bj) {
        for (unsigned bi = 0; bi < nTiles; ++bi) {
            TA.set(bi,bj, new CMTile<double>(dim[bi],dim[bj]));
@@ -806,16 +811,23 @@ int test_22()
 
    for (unsigned bj = 0; bj < nTiles; ++bj) {
        for (unsigned bi = 0; bi < nTiles; ++bi) {
-           TA(bi,bj).fill(TestFunctor(STA.rowOffset(bi),STA.colOffset(bj)));
-           TB(bi,bj).fill0();
-           TC(bi,bj).fill0();
+           TA(bi,bj).Tile<double>::fill(TestFunctor(STA.rowOffset(bi),STA.colOffset(bj)));
+           TB(bi,bj).Tile<double>::fill();
            if (bi <= bj) {
-              STA(bi,bj).fill(TestFunctor(STA.rowOffset(bi),STA.colOffset(bj)));
+              STA(bi,bj).Tile<double>::fill(TestFunctor(STA.rowOffset(bi),STA.colOffset(bj)));
            }
        }
    }
 
+   //TC memory needs to be contiguous 
+   size_t nc = TC.nRows()*TC.nCols();
+   double* tc = new double[nc];
+   memset(tc,0,nc*sizeof(double));
+   TC.bind(tc);
+
    TA.print("TileArray");
+   TA.info("TileArray");
+   STA.print("SymmetricTileArray");
    STA.info("SymmetricTileArray");
 
 
@@ -831,9 +843,11 @@ int test_22()
    
    if (std::abs(TC.norm2()) > 1e-8) {
       std::cout << "FAILED: norm2 =" << TC.norm2() << std::endl;
+      delete [] tc;
       return 1;
    }
 
+   delete [] tc;
    return 0;
 }
 
@@ -870,7 +884,7 @@ int test_23()
 
    for (unsigned bi = 0; bi < nTiles; ++bi) {
        for (unsigned bj = bi; bj < nTiles; ++bj) {
-           STA(bi,bj).fill(TestFunctor(STA.rowOffset(bi),STA.colOffset(bj)));
+           STA(bi,bj).Tile<double>::fill(TestFunctor(STA.rowOffset(bi),STA.colOffset(bj)));
        }
    }
 
@@ -891,6 +905,70 @@ int test_23()
 
 
 
+int test_24()
+{
+   print_header(24, "Davidson");
+
+   unsigned nBlocks  = 11;
+   unsigned blocks[] = { 1, 6, 6, 5, 5, 4, 5, 6, 5, 4, 3};
+
+   TileArray<double> TA(nBlocks,nBlocks);
+   TileArray<double> Tv(nBlocks,1);
+
+   for (unsigned bi = 0; bi < TA.nRowTiles(); ++bi) {
+       Tv.set(bi,0, new CMTile<double>(blocks[bi],1));
+       for (unsigned bj = 0; bj < TA.nColTiles(); ++bj) {
+           TA.set(bi,bj, new CMTile<double>(blocks[bi],blocks[bj]));
+       }
+   }
+
+   std::vector<double> mat(readFile("mat10"));
+   std::cout << "Number of matrix entries read: " << mat.size() << std::endl;
+   TA.bind(&mat[0]);
+
+   Timer timer;
+   timer.start();
+   eigenvalues(TA);
+   timer.stop();
+   std::cout << "LAPACK time: " << timer.format() << std::endl;
+
+   unsigned subspace(5);
+   double const Emin(46.0);
+   double const Emax(55.0);
+
+   // Reduce the dense matrices to bespoke storage
+   TA.reduce();
+
+   timer.start();
+   int rv = diagonalize(TA, subspace, Emin, Emax);
+   timer.stop();
+   std::cout << "FEAST time: " << timer.format() << std::endl;
+
+   // Davidson iterations
+   //TC memory needs to be contiguous 
+   size_t nv = Tv.nRows()*Tv.nCols();
+   double* tv = new double[nv];
+   memset(tv,0,nv*sizeof(double));
+   tv[ 0] =   0.992;
+   tv[ 7] =  -0.088;
+   tv[32] =  -0.070;
+   Tv.bind(tv);
+
+   timer.start();
+   DavidsonIteration(TA, Tv, 46);
+   timer.stop();
+   std::cout << "Iteration time: " << timer.format() << std::endl;
+
+   timer.start();
+   DavidsonMethod(TA, Tv, 46);
+   timer.stop();
+   std::cout << "Davidson Method  time: " << timer.format() << std::endl;
+
+
+   delete [] tv;
+   return rv;
+
+}
 
 
 int main()
@@ -923,6 +1001,7 @@ int main()
 */
       + test_22()
       + test_23()
+      + test_24()
    ;
 
    std::cout << std::endl;

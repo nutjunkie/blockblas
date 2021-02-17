@@ -1,6 +1,7 @@
 #ifndef JACOBISOLVER_H
 #define JACOBISOLVER_H
 
+#include <mkl.h>
 #include <iostream>
 #include "CMTile.h"
 #include "TileArray.h"

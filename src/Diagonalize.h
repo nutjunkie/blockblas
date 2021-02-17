@@ -1,8 +1,19 @@
 #ifndef DIAGONALIZE_H
 #define DIAGONALIZE_H
 
-#include "TileArray.h"
-#include "SymmetricTileArray.h"
+#ifdef MYMPI
+#include <mpi.h>
+extern "C" {
+#include "feast.h"
+}
+#else
+// This needs to be included before mkl.h to define MKL_Complex16
+#include "Types.h"
+#include <mkl.h>
+#define MPI_Fint int
+#endif 
+
+
 #include "JacobiSolver.h"
 #include "ConjugateSolver.h"
 #include "TileProduct.h"
@@ -14,24 +25,19 @@
 #include <stdlib.h>
 #include <cstring>
 #include <math.h>
-#include "mkl.h"
-#ifdef MYMPI
-#include <mpi.h>
-#endif 
 
 #include <iostream>
-#include <fstream>
 #include <iomanip>
-#include <vector>
 
 
-
+extern "C" {
+   void pfeastinit_(int*, int*, int*);
+}
 
 template <class TT>
 int diagonalize(TT& A, unsigned const subspace, const double Emin, const double Emax)
-//int diagonalize(TileArray<double>& A, unsigned const subspace, const double Emin, const double Emax)
 {
-    const MKL_INT N = A.nCols();
+    MKL_INT N = A.nCols();
 
     double* res  = new double[N];
     double* E    = new double[N];
@@ -40,18 +46,33 @@ int diagonalize(TT& A, unsigned const subspace, const double Emin, const double 
     double* Aq   = new double[subspace*subspace];
     double* Sq   = new double[subspace*subspace];
 
-    complex* workc = new complex[N*subspace];
+    std::complex<double>* workc = new std::complex<double>[N*subspace];
+    complex  Ze;
+#if 0
+    MKL_Complex16* workc = new MKL_Complex16[N*subspace];
+    MKL_Complex16 Ze;
+#endif
+
+    double   Zed[2]; // hack to pass Ze to Fortran
     
     double  epsout(0.0);
-    MKL_Complex16 Ze;
-    MKL_INT M0(subspace);
-    MKL_INT M = M0;
-    MKL_INT loop(0);
-    MKL_INT info(0);
-    MKL_INT ijob(-1);
-    MKL_INT fpm[128];
 
+    int M0(subspace);
+    int M = M0;
+    int loop(0);
+    int info(0);
+    int fpm[128];
+    int rank(0);
+    int ijob(-1);
+
+#ifdef MYMPI
+    int L2(MPI_COMM_WORLD);
+    int L3(1);
+    pfeastinit_(fpm, &L2, &L3);
+#else
     feastinit(fpm);
+#endif
+
 
     fpm[0] = 1; /* Generate runtime messages */
     fpm[5] = 1; /* Second stopping criteria  */
@@ -80,8 +101,18 @@ int diagonalize(TT& A, unsigned const subspace, const double Emin, const double 
         //     double* res,          relative residual vectors
         //     MKL_INT* info         output
         //   );
+        
 
+
+#ifdef MYMPI
+        double emin(Emin);
+        double emax(Emax);
+        double* workcd = reinterpret_cast<double*>(workc);
+        my_dfeast_srci(&ijob,&N,Zed,work,workcd,Aq,Sq,fpm,&epsout,&loop,&emin,&emax,&M0,E,X,&M,res,&info);
+        Ze = complex(Zed[0],Zed[1]);
+#else
         dfeast_srci(&ijob,&N,&Ze,work,workc,Aq,Sq,fpm,&epsout,&loop,&Emin,&Emax,&M0,E,X,&M,res,&info);
+#endif
 
         if ( info != 0 ) {
             printf("DFEAST_SRCI info %i \n", info);
@@ -182,14 +213,15 @@ int diagonalize(TT& A, unsigned const subspace, const double Emin, const double 
 
             } break;
  
+/*
             default:
                 printf("Wrong ijob %i", ijob); fflush(0);
                 return 1;
+*/
         }
     }
 
 
-    int rank(0);
 #ifdef MYMPI
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 #endif

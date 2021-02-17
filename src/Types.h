@@ -4,17 +4,10 @@
 #include <complex>
 
 #ifdef __INTEL_COMPILER
-#define MKL_Complex16 std::complex<double>
-typedef std::complex<double> complex;
-#else
-typedef std::complex<double> complex;
+#define MKL_Complex16 complex
 #endif
+typedef std::complex<double> complex;
 
-#ifdef __MAC_OS__
-#include <veclib/veclib.h>
-#else
-#include <mkl.h>
-#endif
 
 #include <string>
 #include <utility>

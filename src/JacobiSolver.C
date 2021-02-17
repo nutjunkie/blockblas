@@ -1,3 +1,4 @@
+#include "Types.h"
 #include "JacobiSolver.h"
 #include "Log.h"
 
