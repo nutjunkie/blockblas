@@ -4,6 +4,7 @@
 #include "TileProduct.h"
 #include "EigenSolver.h"
 #include "Diagonalize.h"
+#include "Davidson.h"
 #include "Timer.h"
 #include "util.h"
 
@@ -70,8 +71,10 @@ int spherium90_512()
    unsigned blocks[] =  {1, 510, 510, 509, 509, 508, 509, 510, 509, 508, 507};
    std::string fname("mat512");
 
+   TileArray<double> Gv(nBlocks,1);
    TileArray<double> TA(nBlocks,nBlocks);
    for (unsigned bi = 0; bi < TA.nRowTiles(); ++bi) {
+       Gv.set(bi,0, new CMTile<double>(blocks[bi],1));
        for (unsigned bj = 0; bj < TA.nColTiles(); ++bj) {
            TA.set(bi,bj, new CMTile<double>(blocks[bi],blocks[bj]));
        }
@@ -97,6 +100,7 @@ int spherium90_512()
    unsigned subspace(2);
    double Emin(46.0);
    double Emax(47.0);
+   int rv(0);
 
    subspace = 5;
    Emin = 46.0;
@@ -116,10 +120,21 @@ int spherium90_512()
    }
 
    timer.start();
-   int rv = diagonalize(STA, subspace, Emin, Emax);
+   rv = diagonalize(STA, subspace, Emin, Emax);
    timer.stop();
-
    if (rank == 0) std::cout << "FEAST time:     " << timer.format() << std::endl;
+
+   unsigned N(TA.nRows());
+   double* gv = new double[N];
+   memset(gv, 0, N*sizeof(double));
+   gv[0] = 1.0;
+   Gv.bind(gv);
+
+   timer.start();
+   rv = DavidsonMethod(STA, Gv, 46.51);
+   timer.stop();
+   if (rank == 0) std::cout << "Davidson time:     " << timer.format() << std::endl;
+   delete [] gv;
 
    return rv;
 }

@@ -310,7 +310,6 @@ class CMTile : public Tile<T>
           }
 
           //std::cout << "Storage reduced to " << k << " " << toString(tile->storage()) << std::endl;
-          //this->print();
           delete [] sums;
 
           return tile;

@@ -1,7 +1,7 @@
 #include "Davidson.h"
 #include "TileProduct.h"
 
-#define MAX_ITERATIONS 50
+#define DEBUG false
 
 typedef TileArray<double> TA;
 typedef DiagonalTile<double> DT;
@@ -26,8 +26,25 @@ double dot(double const* a, double const* b, size_t const n)
 }
 
 
+void normalize(double* vec, size_t const n)
+{
+   double d(dot(vec,vec,n));
+   d = 1.0/std::sqrt(d);
+   for (size_t i = 0; i < n; ++i) {
+       vec[i] *= d;
+   }
+}
 
-int DavidsonMethod(TA const& A, TA const& vec0, double lam0)
+template<>
+int DavidsonMethod(TileArray<double> const& A, TA const& vec0, double lam0)
+{
+    std::cout << "Need to convert to SymmetricTileArray" << std::endl;
+    return 1;
+}
+
+
+template<>
+int DavidsonMethod(SymmetricTileArray<double> const& A, TA const& vec0, double lam0)
 {
    int rv(0);
 
@@ -50,20 +67,19 @@ int DavidsonMethod(TA const& A, TA const& vec0, double lam0)
 
    // Digaonal Tiles:
    DT** D = new DT*[nBlocks];
-   DT** M = new DT*[nBlocks];
 
    #pragma omp parallel for 
    for (unsigned i = 0; i < nBlocks; ++i) {
        D[i] = new DT(A(i,i));
    }
 
-
-
    // Set up the block structure for u and w (lazy)
    TA uj(vec0);
    TA wj(vec0);
 
    memcpy(U, vec0(0).data(), N*sizeof(double));
+
+   normalize(U,N);
 
    for (int j = 0; j < maxIter-1; ++j) {
        // w_j = A u_j
@@ -72,13 +88,9 @@ int DavidsonMethod(TA const& A, TA const& vec0, double lam0)
        wj.bind(W+j*N);
        product(A,uj,wj);
 
-       //uj.print("Print u vec");
-       //wj.print("Print w vec");
-
        // augment B(i,j)
        for (int k = 0; k < j; ++k) {
            B.set(k,j, dot(U+k*N, W+j*N, N));
-           // std::cout << "setting B(" << k << "," << j << ") = " << B(k,j) <<  " = " << dot(U+k*N, W+j*N, N) << std::endl;
            B.set(j,k, dot(U+j*N, W+k*N, N));
        }
        B.set(j,j, dot(U+j*N, W+j*N, N));
@@ -89,32 +101,35 @@ int DavidsonMethod(TA const& A, TA const& vec0, double lam0)
 
        for (unsigned i = 0; i <= j; ++i) {
            for (unsigned k = 0; k <= j; ++k) {
-               //std::cout << "setting b(" << i << "," << k << ") = " << B(i,k) << std::endl;
                b.set(i,k, B(i,k));
            }
        }
 
-       b.print("b for eigen:");
+       if (DEBUG) b.print("b for eigen:");
 
        // Eigenvalues of B
        int info = LAPACKE_dsyev(LAPACK_COL_MAJOR, 'V', 'U', b.nRows(), b.data(), b.nRows(), work);
        lam1 = work[0];
-       for (unsigned i = 0; i <= j; ++i) {
-           std::cout << "work array: " << work[i] << std::endl;
-       }
 
-       std::cout << "First eigenvalue: " << lam1 << std::endl;
+       std::cout << std::fixed << std::showpoint << std::setprecision(10);
+       std::cout << "Iter: " << j+1 << " ev = " << lam1 << std::endl;
 
        if (std::abs(lam1-lam0) < 1e-10) {
-          std::cout << "Converged: " << lam1 << std::endl;
+          std::cout << std::fixed << std::showpoint << std::setprecision(10);
+          std::cout << "Converged in " << j+1 << " iterations: " << lam1 << std::endl;
           goto cleanup;
+       }else if(j == 0) {
+          lam1 *= 1.00001;
        }
        lam0 = lam1;
+
+       if (DEBUG) b.print("b from eigen:");
+
 
        // form y
        memset(y, 0, N*sizeof(double));
        for (unsigned i = 0; i <= j; ++i) {
-           axpy(y, b(i,0), U+i*N, N);
+           axpy(y, b(i), U+i*N, N);
        }
 
        // form r in wj
@@ -123,9 +138,8 @@ int DavidsonMethod(TA const& A, TA const& vec0, double lam0)
        wj.bind(r);
        wj.scale(-lam1);
        product(A,uj,wj);
-       //wj.print("r vector :");
 
-       // form t in uj
+       // form t in uj (12)
        #pragma omp parallel for 
        for (unsigned i = 0; i < nBlocks; ++i) {
           D[i]->addToDiag(-lam1);
@@ -135,19 +149,30 @@ int DavidsonMethod(TA const& A, TA const& vec0, double lam0)
           D[i]->addToDiag(lam1);
        }
 
+       // project out U from t (13)
        CMTile<double> Uj(N,j+1);
        Uj.bind(U);
-       CMTile<double> t(N,1);
-       t.bind(y);
-       CMTile<double> tmp(j+1,1);
-       tmp.fill();
-       tile_product(Uj, t, zero, tmp, CblasTrans);
-       tile_product(Uj, tmp, -1.0, t, CblasNoTrans);
+       CMTile<double> T(N,1);
+       T.bind(y);
+       CMTile<double> Tmp(j+1,1);
+       Tmp.alloc();
 
-       double n2(t.norm2());
-       t.scale(-1.0/std::sqrt(n2));
+       tile_product(Uj, T, zero, Tmp, CblasTrans);
+       if (DEBUG) Tmp.print("Projections");
 
+       tile_product(Uj, Tmp, -1.0, T, CblasNoTrans);
+
+       normalize(y,N);
        memcpy(U+(j+1)*N, y, N*sizeof(double));
+
+       if (DEBUG) {
+          Uj.resize(N,j+2);
+          Uj.bind(U);
+          Tmp.resize(j+2,j+2);
+          Tmp.alloc();
+          tile_product(Uj, Uj, zero, Tmp, CblasTrans);
+          Tmp.print("Ortho mat");
+       }
    }
 
    std::cout << "Davidson barffed: " << std::endl;
@@ -158,102 +183,12 @@ int DavidsonMethod(TA const& A, TA const& vec0, double lam0)
       delete [] y;
       delete [] r;
       delete [] work;
-
-   return rv;
-}
-
-
-
-int DavidsonIteration(TA const& A, TA const& vec0, double lam0)
-{
-   int rv(0);
-   unsigned N(A.nRows());
-   unsigned nBlocks(A.nRowTiles());
-
-   double const thresh(1e-10);
-
-   DT** D = new DT*[nBlocks];
-   DT** M = new DT*[nBlocks];
-
-   #pragma omp parallel for 
-   for (unsigned i = 0; i < nBlocks; ++i) {
-       D[i] = new DT(A(i,i));
-       M[i] = new DT(A(i,i));
-       D[i]->scale(-1.0);
-   }
-
-   TA v0(vec0);
-   TA v1(vec0);
-   TA Av(vec0);
-
-   // normalize v0;
-   double norm(v0.norm2());
-   norm = std::sqrt(norm);
-   v0.scale(1.0/norm);
-
-   TA Lam1(1,1);
-   Lam1.set(0,0, new CMTile<double>(1,1));
-   Lam1(0,0).set(0,0,0.0);
-   
-   double zero(0.0);
-   double one(1.0);
-
-   for (unsigned it = 0; it < MAX_ITERATIONS; ++it) {
-
-       v1.fill();
-       product(A,v0,v1);
-
-       #pragma omp parallel for 
-       for (unsigned i = 0; i < nBlocks; ++i) {
-           tile_product(*D[i], v0(i), one, v1(i));
-           *M[i] = *D[i];
-           M[i]->addToDiag(lam0);
-           M[i]->invert();
-           tile_product(*M[i], v1(i), zero, v0(i));
-       }
-
-       // normalize v0;
-       norm = v0.norm2();
-       norm = std::sqrt(norm);
-       v0.scale(1.0/norm);
-
-       v1.fill();
-       Lam1(0,0).set(0,0,0.0);
-       product(A, v0, v1);
-
-       //v0.print("v0");
-       //v1.print("v1");
-       //Lam1.print("lam");
-       //double lam1(Lam1(0,0).get(0,0));
-       double lam1(0.0);
-
-       for (unsigned i = 0; i < nBlocks; ++i) {
-           for (unsigned j = 0; j < v0(i).nRows(); ++j) {
-               lam1 += v0(i).get(j)*v1(i).get(j);
-           }
-       } 
-
-       std::cout << "Eigenvalue: " << lam1 << std::endl;
-      
-       if (std::abs(lam1-lam0) < thresh) {
-          std::cout << "Eigenvalue converged in " << it 
-                    << " iterations: " << lam1 << std::endl;
-          goto cleanup;
-       }
-
-       lam0 = lam1;
-   }
-
-   std::cout << "Error: Max iterations reached in DavidsonIteration " << lam0 << std::endl;
-   rv = 1;
-
-   cleanup:
       for (unsigned i = 0; i < nBlocks; ++i) {
           delete D[i];
-          delete M[i];
       }
-      delete [] D;
-      delete [] M;
 
-  return rv;
+      delete [] D;
+
+
+   return rv;
 }

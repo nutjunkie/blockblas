@@ -954,13 +954,11 @@ int test_24()
    tv[32] =  -0.070;
    Tv.bind(tv);
 
-   timer.start();
-   DavidsonIteration(TA, Tv, 46);
-   timer.stop();
-   std::cout << "Iteration time: " << timer.format() << std::endl;
+
+   SymmetricTileArray<double> STA(TA);
 
    timer.start();
-   DavidsonMethod(TA, Tv, 46);
+   DavidsonMethod(STA, Tv, 46);
    timer.stop();
    std::cout << "Davidson Method  time: " << timer.format() << std::endl;
 

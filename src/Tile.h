@@ -198,10 +198,10 @@ class Tile
          if (isBound()) {
             if (msg)  os << msg << std::endl;
 
-            std::cout << std::fixed << std::showpoint << std::setprecision(2);
+            std::cout << std::fixed << std::showpoint << std::setprecision(4);
             for (unsigned i = 0; i < m_nRows; ++i) {
                 for (unsigned j = 0; j < m_nCols; ++j) {
-                    os << std::setw(5) << (*this)(i,j) << " ";
+                    os << std::setw(7) << (*this)(i,j) << " ";
                 }   
                 os << std::endl;
             }   
