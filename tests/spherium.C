@@ -128,7 +128,7 @@ int spherium90_512()
    double* gv = new double[N];
    memset(gv, 0, N*sizeof(double));
    gv[0] = 1.0;
-   Gv.bind(gv);
+   Gv.bind(gv);  // memory needs to be contiguous
 
    timer.start();
    rv = DavidsonMethod(STA, Gv, 46.51);
